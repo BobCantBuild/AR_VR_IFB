@@ -423,10 +423,13 @@
     // Draws one dimension callout: a line parallel to the product edge a→b but pushed
     // `offset` px away from the model, thin extension lines connecting the two, end caps,
     // and a horizontal label. `centerPt` is used to decide which way is "away from the model".
-    function drawDim(group, ext1, ext2, lineEl, t1, t2, dot1, dot2, labelEl, a, b, vis, centerPt, offset, text) {
-      // vis === 0 means both endpoints are occluded: the edge is behind the machine.
-      group.style.opacity = vis === 0 ? "0" : "1";
-      if (vis === 0) return;
+    function drawDim(group, ext1, ext2, lineEl, t1, t2, dot1, dot2, labelEl, a, b, vis, minVis, centerPt, offset, text) {
+      // Height and width run roughly across the view, so one visible end is enough to place
+      // them. Depth recedes away from the camera, and an occluded far end means the edge
+      // disappears behind the machine — drawing it would run the line over the product, so
+      // depth demands both ends visible and simply hides itself the rest of the time.
+      group.style.opacity = vis < minVis ? "0" : "1";
+      if (vis < minVis) return;
 
       const dx = b.x - a.x, dy = b.y - a.y;
       const len = Math.hypot(dx, dy) || 1;
@@ -527,11 +530,11 @@
       // A callout with neither endpoint visible is measuring an edge that's entirely behind
       // the machine — drawing it just puts a line across the product, so hide it instead.
       drawDim(hGroup, hExt1, hExt2, hLine, hTick1, hTick2, hDot1, hDot2, hLabel,
-        pts[hEdge.ia], pts[hEdge.ib], hEdge.vis, centerPt, 26, labelFor("h", Math.round(size.y * 100)));
+        pts[hEdge.ia], pts[hEdge.ib], hEdge.vis, 1, centerPt, 26, labelFor("h", Math.round(size.y * 100)));
       drawDim(wGroup, wExt1, wExt2, wLine, wTick1, wTick2, wDot1, wDot2, wLabel,
-        pts[wEdge.ia], pts[wEdge.ib], wEdge.vis, centerPt, 26, labelFor("w", Math.round(size.x * 100)));
+        pts[wEdge.ia], pts[wEdge.ib], wEdge.vis, 1, centerPt, 26, labelFor("w", Math.round(size.x * 100)));
       drawDim(dGroup, dExt1, dExt2, dLine, dTick1, dTick2, dDot1, dDot2, dLabel,
-        pts[dEdge.ia], pts[dEdge.ib], dEdge.vis, centerPt, 26, labelFor("d", Math.round(size.z * 100)));
+        pts[dEdge.ia], pts[dEdge.ib], dEdge.vis, 2, centerPt, 26, labelFor("d", Math.round(size.z * 100)));
 
       requestAnimationFrame(dimLoop);
     }
