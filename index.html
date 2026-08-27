@@ -172,7 +172,15 @@
 
     .dim-line, .dim-tick {
       stroke: #ffcc00;
-      stroke-width: 1.5;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    /* Thin leader lines running from the product edge out to the dimension line (CAD/IKEA style) */
+    .dim-ext {
+      stroke: #ffcc00;
+      stroke-width: 1;
+      opacity: 0.55;
     }
 
     .dim-label {
@@ -238,11 +246,18 @@
     <div slot="hotspot-dim-c7" id="dimC7" data-position="0 0 0" data-normal="0 0 1"></div>
 
     <svg class="dim-svg" id="dimSvg">
+      <!-- Height callout: 2 thin extension lines from the product edge out to the
+           dimension line, the dimension line itself, end caps, and a label. -->
+      <line id="hExt1" class="dim-ext"></line>
+      <line id="hExt2" class="dim-ext"></line>
       <line id="hLine" class="dim-line"></line>
       <line id="hTick1" class="dim-tick"></line>
       <line id="hTick2" class="dim-tick"></line>
       <text id="hLabel" class="dim-label"></text>
 
+      <!-- Width callout -->
+      <line id="wExt1" class="dim-ext"></line>
+      <line id="wExt2" class="dim-ext"></line>
       <line id="wLine" class="dim-line"></line>
       <line id="wTick1" class="dim-tick"></line>
       <line id="wTick2" class="dim-tick"></line>
@@ -300,11 +315,15 @@
     // and draws blueprint-style callout lines/ticks/labels between them.
     const cornerEls = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => document.getElementById(`dimC${i}`));
 
+    const hExt1 = document.getElementById("hExt1");
+    const hExt2 = document.getElementById("hExt2");
     const hLine = document.getElementById("hLine");
     const hTick1 = document.getElementById("hTick1");
     const hTick2 = document.getElementById("hTick2");
     const hLabel = document.getElementById("hLabel");
 
+    const wExt1 = document.getElementById("wExt1");
+    const wExt2 = document.getElementById("wExt2");
     const wLine = document.getElementById("wLine");
     const wTick1 = document.getElementById("wTick1");
     const wTick2 = document.getElementById("wTick2");
@@ -344,50 +363,83 @@
       return { x: r.left + r.width / 2 - mvRect.left, y: r.top + r.height / 2 - mvRect.top };
     }
 
-    // Every frame: project the 8 bounding-box corners to screen space and take their
-    // min/max X/Y. That's exactly the model's true on-screen silhouette footprint for the
-    // current camera angle (front, top-down in AR, whatever) — so lines drawn along those
-    // edges stay correctly attached to the model instead of cutting through it.
+    // Corner index for a given (sx, sy, sz) sign triple, matching the fill order in
+    // placeDimensionAnchors(): x outer loop, then y, then z.
+    const cornerIndex = (sx, sy, sz) => (sx > 0 ? 4 : 0) + (sy > 0 ? 2 : 0) + (sz > 0 ? 1 : 0);
+
+    // Draws one dimension callout: a line parallel to the product edge a→b but pushed
+    // `offset` px away from the model, thin extension lines connecting the two, end caps,
+    // and a horizontal label. `centerPt` is used to decide which way is "away from the model".
+    function drawDim(ext1, ext2, lineEl, t1, t2, labelEl, a, b, centerPt, offset, text) {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      let px = -dy / len, py = dx / len;
+
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      if ((mx - centerPt.x) * px + (my - centerPt.y) * py < 0) { px = -px; py = -py; }
+
+      const A = { x: a.x + px * offset, y: a.y + py * offset };
+      const B = { x: b.x + px * offset, y: b.y + py * offset };
+
+      // Extension lines start slightly off the product so they don't touch it
+      const gap = 4;
+      ext1.setAttribute("x1", a.x + px * gap); ext1.setAttribute("y1", a.y + py * gap);
+      ext1.setAttribute("x2", A.x + px * 4);   ext1.setAttribute("y2", A.y + py * 4);
+      ext2.setAttribute("x1", b.x + px * gap); ext2.setAttribute("y1", b.y + py * gap);
+      ext2.setAttribute("x2", B.x + px * 4);   ext2.setAttribute("y2", B.y + py * 4);
+
+      lineEl.setAttribute("x1", A.x); lineEl.setAttribute("y1", A.y);
+      lineEl.setAttribute("x2", B.x); lineEl.setAttribute("y2", B.y);
+
+      const cap = 5;
+      t1.setAttribute("x1", A.x - px * cap); t1.setAttribute("y1", A.y - py * cap);
+      t1.setAttribute("x2", A.x + px * cap); t1.setAttribute("y2", A.y + py * cap);
+      t2.setAttribute("x1", B.x - px * cap); t2.setAttribute("y1", B.y - py * cap);
+      t2.setAttribute("x2", B.x + px * cap); t2.setAttribute("y2", B.y + py * cap);
+
+      labelEl.setAttribute("x", (A.x + B.x) / 2 + px * 16);
+      labelEl.setAttribute("y", (A.y + B.y) / 2 + py * 16 + 4); // +4 ≈ half cap-height, vertical centering
+      labelEl.setAttribute("text-anchor", "middle");
+      labelEl.textContent = text;
+    }
+
+    // Every frame: project the 8 bounding-box corners, then pick the single real box EDGE
+    // each measurement should sit against — the leftmost vertical edge for height, and the
+    // bottom edge nearest the camera for width. Anchoring to one edge (rather than the
+    // min/max of the whole projected hull) is what keeps the callouts hugging the product
+    // under AR's close camera and wide FOV, where far-side corners project well away from
+    // the visible face. Same approach furniture catalogues use for dimension graphics.
     function dimLoop() {
       const mvRect = model.getBoundingClientRect();
       const size = model.getDimensions();
+      const pts = cornerEls.map((el) => screenPoint(el, mvRect));
 
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      cornerEls.forEach((el) => {
-        const p = screenPoint(el, mvRect);
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
-      });
+      const centerPt = pts.reduce((acc, p) => ({ x: acc.x + p.x / 8, y: acc.y + p.y / 8 }), { x: 0, y: 0 });
 
-      const margin = 14, tick = 6;
+      // Height → the vertical box edge that sits furthest left on screen
+      let hA = null, hB = null, bestX = Infinity;
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const bottom = pts[cornerIndex(sx, -1, sz)];
+          const top = pts[cornerIndex(sx, 1, sz)];
+          const midX = (bottom.x + top.x) / 2;
+          if (midX < bestX) { bestX = midX; hA = top; hB = bottom; }
+        }
+      }
 
-      // Height line: vertical, just outside the left edge of the footprint
-      const lx = minX - margin;
-      hLine.setAttribute("x1", lx); hLine.setAttribute("y1", minY);
-      hLine.setAttribute("x2", lx); hLine.setAttribute("y2", maxY);
-      hTick1.setAttribute("x1", lx - tick); hTick1.setAttribute("y1", minY);
-      hTick1.setAttribute("x2", lx + tick); hTick1.setAttribute("y2", minY);
-      hTick2.setAttribute("x1", lx - tick); hTick2.setAttribute("y1", maxY);
-      hTick2.setAttribute("x2", lx + tick); hTick2.setAttribute("y2", maxY);
-      hLabel.setAttribute("x", lx - 8);
-      hLabel.setAttribute("y", (minY + maxY) / 2);
-      hLabel.setAttribute("text-anchor", "end");
-      hLabel.textContent = labelFor("h", Math.round(size.y * 100));
+      // Width → the bottom box edge nearest the camera (lowest on screen)
+      let wA = null, wB = null, bestY = -Infinity;
+      for (const sz of [-1, 1]) {
+        const left = pts[cornerIndex(-1, -1, sz)];
+        const right = pts[cornerIndex(1, -1, sz)];
+        const midY = (left.y + right.y) / 2;
+        if (midY > bestY) { bestY = midY; wA = left; wB = right; }
+      }
 
-      // Width line: horizontal, just outside the bottom edge of the footprint
-      const by = maxY + margin;
-      wLine.setAttribute("x1", minX); wLine.setAttribute("y1", by);
-      wLine.setAttribute("x2", maxX); wLine.setAttribute("y2", by);
-      wTick1.setAttribute("x1", minX); wTick1.setAttribute("y1", by - tick);
-      wTick1.setAttribute("x2", minX); wTick1.setAttribute("y2", by + tick);
-      wTick2.setAttribute("x1", maxX); wTick2.setAttribute("y1", by - tick);
-      wTick2.setAttribute("x2", maxX); wTick2.setAttribute("y2", by + tick);
-      wLabel.setAttribute("x", (minX + maxX) / 2);
-      wLabel.setAttribute("y", by + 16);
-      wLabel.setAttribute("text-anchor", "middle");
-      wLabel.textContent = labelFor("w", Math.round(size.x * 100));
+      drawDim(hExt1, hExt2, hLine, hTick1, hTick2, hLabel,
+        hA, hB, centerPt, 26, labelFor("h", Math.round(size.y * 100)));
+      drawDim(wExt1, wExt2, wLine, wTick1, wTick2, wLabel,
+        wA, wB, centerPt, 26, labelFor("w", Math.round(size.x * 100)));
 
       requestAnimationFrame(dimLoop);
     }
