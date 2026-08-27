@@ -14,10 +14,8 @@
     gtag('config', 'G-QYE6P5SK18', { anonymize_ip: true });
   </script>
 
-  <!-- ✅ 3D + AR Viewer — pinned to a known-good version. Unpinned (…/model-viewer/dist/…)
-       serves whatever the latest release is, so an upstream change could break the live site
-       with no change here. Bump this deliberately after testing a newer version. -->
-  <script type="module" src="https://unpkg.com/@google/model-viewer@4.3.1/dist/model-viewer.min.js"></script>
+  <!-- ✅ 3D + AR Viewer -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
   <style>
     :root{
@@ -247,25 +245,17 @@
   <h2>IFB Washing Machine - 3D + AR</h2>
   <p>Rotate / Zoom. Tap AR to place it in your room.</p>
 
-  <!-- ⚠️ scale="0.4245 …" is an ESTIMATE. The GLB is authored ~2.3x oversized (its raw size
-       is ~200x139x145 cm), so this scales it down to a believable front-loader (H85 x W59 x
-       D62 cm) for AR placement and the dimension labels. ar-scale="fixed" then places it at
-       that real-world size and stops the customer pinch-resizing it. Replace with the exact
-       datasheet size when available: recompute scale = target_height_m / 2.0023, or re-export
-       the GLB at true scale and drop this attribute. -->
   <model-viewer
     id="wmModel"
     src="IFB_WM.glb"
     ar
     ar-modes="webxr scene-viewer"
     ar-placement="floor"
-    ar-scale="fixed"
-    scale="0.4245 0.4245 0.4245"
+    ar-scale="auto"
     camera-controls
     auto-rotate
-    auto-rotate-delay="3000"
-    rotation-per-second="20deg"
-    interaction-prompt="none"
+    auto-rotate-delay="0"
+    rotation-per-second="30deg"
     shadow-intensity="1"
     shadow-softness="0.8"
     environment-image="neutral"
@@ -355,21 +345,6 @@
   </div>
 
   <script>
-    // model-viewer 4.3.1 emits a benign unhandled promise rejection during cold page load
-    // from inside its own async setup ("Cannot read properties of null (reading 'add')").
-    // It does not affect rendering, the dimension graphics, or AR — verified by reproducing
-    // the full component config with every attribute this page uses, none of which trigger
-    // it; it only fires on first init inside the library bundle. Swallow it so the customer
-    // console stays clean, scoped strictly to rejections whose stack is in the model-viewer
-    // bundle so our own errors still surface. Re-check when bumping the model-viewer version.
-    window.addEventListener("unhandledrejection", (event) => {
-      const stack = (event.reason && event.reason.stack) || "";
-      if (stack.includes("model-viewer")) {
-        event.preventDefault();
-        console.debug("Suppressed benign model-viewer load rejection:", event.reason && event.reason.message);
-      }
-    });
-
     const loader = document.getElementById("loader");
     const model = document.getElementById("wmModel");
     const dimBadge = document.getElementById("dimBadge");
