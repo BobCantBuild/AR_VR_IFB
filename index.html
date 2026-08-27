@@ -247,13 +247,20 @@
   <h2>IFB Washing Machine - 3D + AR</h2>
   <p>Rotate / Zoom. Tap AR to place it in your room.</p>
 
+  <!-- ⚠️ scale="0.4245 …" is an ESTIMATE. The GLB is authored ~2.3x oversized (its raw size
+       is ~200x139x145 cm), so this scales it down to a believable front-loader (H85 x W59 x
+       D62 cm) for AR placement and the dimension labels. ar-scale="fixed" then places it at
+       that real-world size and stops the customer pinch-resizing it. Replace with the exact
+       datasheet size when available: recompute scale = target_height_m / 2.0023, or re-export
+       the GLB at true scale and drop this attribute. -->
   <model-viewer
     id="wmModel"
     src="IFB_WM.glb"
     ar
     ar-modes="webxr scene-viewer"
     ar-placement="floor"
-    ar-scale="auto"
+    ar-scale="fixed"
+    scale="0.4245 0.4245 0.4245"
     camera-controls
     auto-rotate
     auto-rotate-delay="3000"
