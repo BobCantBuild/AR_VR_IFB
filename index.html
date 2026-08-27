@@ -183,6 +183,18 @@
       opacity: 0.55;
     }
 
+    /* Markers pinning each callout to the exact two points being measured */
+    .dim-dot {
+      fill: #ffcc00;
+      stroke: rgba(0, 0, 0, 0.55);
+      stroke-width: 1;
+    }
+
+    /* Fades a whole callout out when its edge is hidden behind the product */
+    #hGroup, #wGroup, #dGroup {
+      transition: opacity 0.15s linear;
+    }
+
     .dim-label {
       fill: #ffcc00;
       font-size: 12px;
@@ -232,44 +244,57 @@
 
     <!-- ✅ Anchor points for the on-model dimension sketch — one at each of the 8 bounding-box
          corners (positions set from JS after load, from the model's real bounding box). Every
-         frame we read where model-viewer projected these 8 points on screen and use their
-         min/max X/Y to draw the lines along the model's actual on-screen silhouette, so the
-         sketch stays correctly aligned no matter what angle it's viewed from (front, top-down
-         in AR, etc.) instead of being pinned to fixed points that only look right from one side. -->
-    <div slot="hotspot-dim-c0" id="dimC0" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-c1" id="dimC1" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-c2" id="dimC2" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-c3" id="dimC3" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-c4" id="dimC4" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-c5" id="dimC5" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-c6" id="dimC6" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-c7" id="dimC7" data-position="0 0 0" data-normal="0 0 1"></div>
+         frame we read where model-viewer projected these corners on screen and pick which box
+         edge each measurement should sit against.
 
+         data-visibility-attribute="visible" makes model-viewer add/remove a `visible` attribute
+         as each corner becomes occluded by the model — that's what lets us prefer edges on the
+         near side and hide a callout whose edge has gone behind the machine, instead of drawing
+         a line across the product. data-normal points outward along the corner diagonal. -->
+    <div slot="hotspot-dim-c0" id="dimC0" data-position="0 0 0" data-normal="-0.577 -0.577 -0.577" data-visibility-attribute="visible"></div>
+    <div slot="hotspot-dim-c1" id="dimC1" data-position="0 0 0" data-normal="-0.577 -0.577 0.577" data-visibility-attribute="visible"></div>
+    <div slot="hotspot-dim-c2" id="dimC2" data-position="0 0 0" data-normal="-0.577 0.577 -0.577" data-visibility-attribute="visible"></div>
+    <div slot="hotspot-dim-c3" id="dimC3" data-position="0 0 0" data-normal="-0.577 0.577 0.577" data-visibility-attribute="visible"></div>
+    <div slot="hotspot-dim-c4" id="dimC4" data-position="0 0 0" data-normal="0.577 -0.577 -0.577" data-visibility-attribute="visible"></div>
+    <div slot="hotspot-dim-c5" id="dimC5" data-position="0 0 0" data-normal="0.577 -0.577 0.577" data-visibility-attribute="visible"></div>
+    <div slot="hotspot-dim-c6" id="dimC6" data-position="0 0 0" data-normal="0.577 0.577 -0.577" data-visibility-attribute="visible"></div>
+    <div slot="hotspot-dim-c7" id="dimC7" data-position="0 0 0" data-normal="0.577 0.577 0.577" data-visibility-attribute="visible"></div>
+
+    <!-- Each callout is one group so it can be hidden wholesale when its edge goes behind
+         the machine. Endpoint dots mark exactly which two points are being measured. -->
     <svg class="dim-svg" id="dimSvg">
-      <!-- Height callout: 2 thin extension lines from the product edge out to the
-           dimension line, the dimension line itself, end caps, and a label. -->
-      <line id="hExt1" class="dim-ext"></line>
-      <line id="hExt2" class="dim-ext"></line>
-      <line id="hLine" class="dim-line"></line>
-      <line id="hTick1" class="dim-tick"></line>
-      <line id="hTick2" class="dim-tick"></line>
-      <text id="hLabel" class="dim-label"></text>
+      <g id="hGroup">
+        <line id="hExt1" class="dim-ext"></line>
+        <line id="hExt2" class="dim-ext"></line>
+        <line id="hLine" class="dim-line"></line>
+        <line id="hTick1" class="dim-tick"></line>
+        <line id="hTick2" class="dim-tick"></line>
+        <circle id="hDot1" class="dim-dot" r="3.5"></circle>
+        <circle id="hDot2" class="dim-dot" r="3.5"></circle>
+        <text id="hLabel" class="dim-label"></text>
+      </g>
 
-      <!-- Width callout -->
-      <line id="wExt1" class="dim-ext"></line>
-      <line id="wExt2" class="dim-ext"></line>
-      <line id="wLine" class="dim-line"></line>
-      <line id="wTick1" class="dim-tick"></line>
-      <line id="wTick2" class="dim-tick"></line>
-      <text id="wLabel" class="dim-label"></text>
+      <g id="wGroup">
+        <line id="wExt1" class="dim-ext"></line>
+        <line id="wExt2" class="dim-ext"></line>
+        <line id="wLine" class="dim-line"></line>
+        <line id="wTick1" class="dim-tick"></line>
+        <line id="wTick2" class="dim-tick"></line>
+        <circle id="wDot1" class="dim-dot" r="3.5"></circle>
+        <circle id="wDot2" class="dim-dot" r="3.5"></circle>
+        <text id="wLabel" class="dim-label"></text>
+      </g>
 
-      <!-- Depth callout -->
-      <line id="dExt1" class="dim-ext"></line>
-      <line id="dExt2" class="dim-ext"></line>
-      <line id="dLine" class="dim-line"></line>
-      <line id="dTick1" class="dim-tick"></line>
-      <line id="dTick2" class="dim-tick"></line>
-      <text id="dLabel" class="dim-label"></text>
+      <g id="dGroup">
+        <line id="dExt1" class="dim-ext"></line>
+        <line id="dExt2" class="dim-ext"></line>
+        <line id="dLine" class="dim-line"></line>
+        <line id="dTick1" class="dim-tick"></line>
+        <line id="dTick2" class="dim-tick"></line>
+        <circle id="dDot1" class="dim-dot" r="3.5"></circle>
+        <circle id="dDot2" class="dim-dot" r="3.5"></circle>
+        <text id="dLabel" class="dim-label"></text>
+      </g>
     </svg>
   </model-viewer>
 
@@ -344,6 +369,16 @@
     const dTick2 = document.getElementById("dTick2");
     const dLabel = document.getElementById("dLabel");
 
+    const hGroup = document.getElementById("hGroup");
+    const wGroup = document.getElementById("wGroup");
+    const dGroup = document.getElementById("dGroup");
+    const hDot1 = document.getElementById("hDot1");
+    const hDot2 = document.getElementById("hDot2");
+    const wDot1 = document.getElementById("wDot1");
+    const wDot2 = document.getElementById("wDot2");
+    const dDot1 = document.getElementById("dDot1");
+    const dDot2 = document.getElementById("dDot2");
+
     let dimLoopRunning = false;
 
     // updateHotspot() (not just setting data-position) is required — model-viewer only
@@ -388,7 +423,11 @@
     // Draws one dimension callout: a line parallel to the product edge a→b but pushed
     // `offset` px away from the model, thin extension lines connecting the two, end caps,
     // and a horizontal label. `centerPt` is used to decide which way is "away from the model".
-    function drawDim(ext1, ext2, lineEl, t1, t2, labelEl, a, b, centerPt, offset, text) {
+    function drawDim(group, ext1, ext2, lineEl, t1, t2, dot1, dot2, labelEl, a, b, vis, centerPt, offset, text) {
+      // vis === 0 means both endpoints are occluded: the edge is behind the machine.
+      group.style.opacity = vis === 0 ? "0" : "1";
+      if (vis === 0) return;
+
       const dx = b.x - a.x, dy = b.y - a.y;
       const len = Math.hypot(dx, dy) || 1;
       let px = -dy / len, py = dx / len;
@@ -415,6 +454,10 @@
       t2.setAttribute("x1", B.x - px * cap); t2.setAttribute("y1", B.y - py * cap);
       t2.setAttribute("x2", B.x + px * cap); t2.setAttribute("y2", B.y + py * cap);
 
+      // Dots sit on the product corners themselves, marking exactly what's being measured
+      dot1.setAttribute("cx", a.x); dot1.setAttribute("cy", a.y);
+      dot2.setAttribute("cx", b.x); dot2.setAttribute("cy", b.y);
+
       labelEl.setAttribute("x", (A.x + B.x) / 2 + px * 16);
       labelEl.setAttribute("y", (A.y + B.y) / 2 + py * 16 + 4); // +4 ≈ half cap-height, vertical centering
       labelEl.setAttribute("text-anchor", "middle");
@@ -434,43 +477,59 @@
 
       const centerPt = pts.reduce((acc, p) => ({ x: acc.x + p.x / 8, y: acc.y + p.y / 8 }), { x: 0, y: 0 });
 
-      // Height → the vertical box edge that sits furthest left on screen
-      let hA = null, hB = null, bestX = Infinity;
+      // How many of an edge's two endpoints model-viewer currently reports as un-occluded.
+      // Preferring edges on the near side is the fix for the height line latching onto a
+      // rear edge: a back edge is foreshortened and vertically offset by perspective, so
+      // measuring it looks wrong next to the machine's visible near silhouette.
+      const visCount = (ia, ib) =>
+        (cornerEls[ia].hasAttribute("visible") ? 1 : 0) + (cornerEls[ib].hasAttribute("visible") ? 1 : 0);
+
+      // Picks the best edge from a candidate list: most-visible first, then the caller's
+      // screen-space preference (leftmost / lowest / rightmost) as the tiebreak.
+      function pickEdge(candidates) {
+        let best = null;
+        for (const c of candidates) {
+          c.vis = visCount(c.ia, c.ib);
+          if (!best || c.vis > best.vis || (c.vis === best.vis && c.score > best.score)) best = c;
+        }
+        return best;
+      }
+
+      // Height → vertical edge, prefer visible, tiebreak leftmost (negated for "higher is better")
+      const hEdges = [];
       for (const sx of [-1, 1]) {
         for (const sz of [-1, 1]) {
-          const bottom = pts[cornerIndex(sx, -1, sz)];
-          const top = pts[cornerIndex(sx, 1, sz)];
-          const midX = (bottom.x + top.x) / 2;
-          if (midX < bestX) { bestX = midX; hA = top; hB = bottom; }
+          const ia = cornerIndex(sx, 1, sz), ib = cornerIndex(sx, -1, sz);
+          hEdges.push({ ia, ib, score: -(pts[ia].x + pts[ib].x) / 2 });
         }
       }
+      const hEdge = pickEdge(hEdges);
 
-      // Width → the bottom box edge nearest the camera (lowest on screen)
-      let wA = null, wB = null, bestY = -Infinity;
+      // Width → bottom edge across the front, prefer visible, tiebreak lowest on screen
+      const wEdges = [];
       for (const sz of [-1, 1]) {
-        const left = pts[cornerIndex(-1, -1, sz)];
-        const right = pts[cornerIndex(1, -1, sz)];
-        const midY = (left.y + right.y) / 2;
-        if (midY > bestY) { bestY = midY; wA = left; wB = right; }
+        const ia = cornerIndex(-1, -1, sz), ib = cornerIndex(1, -1, sz);
+        wEdges.push({ ia, ib, score: (pts[ia].y + pts[ib].y) / 2 });
       }
+      const wEdge = pickEdge(wEdges);
 
-      // Depth → the bottom edge running front-to-back that sits furthest right on screen.
-      // Height takes the left side and width the front, so putting depth on the right keeps
-      // the three callouts on separate sides of the product instead of overlapping.
-      let dA = null, dB = null, bestDX = -Infinity;
+      // Depth → bottom edge running front-to-back. Height takes the left side and width the
+      // front, so the rightmost one keeps the three callouts on separate sides.
+      const dEdges = [];
       for (const sx of [-1, 1]) {
-        const front = pts[cornerIndex(sx, -1, 1)];
-        const back = pts[cornerIndex(sx, -1, -1)];
-        const midX = (front.x + back.x) / 2;
-        if (midX > bestDX) { bestDX = midX; dA = front; dB = back; }
+        const ia = cornerIndex(sx, -1, 1), ib = cornerIndex(sx, -1, -1);
+        dEdges.push({ ia, ib, score: (pts[ia].x + pts[ib].x) / 2 });
       }
+      const dEdge = pickEdge(dEdges);
 
-      drawDim(hExt1, hExt2, hLine, hTick1, hTick2, hLabel,
-        hA, hB, centerPt, 26, labelFor("h", Math.round(size.y * 100)));
-      drawDim(wExt1, wExt2, wLine, wTick1, wTick2, wLabel,
-        wA, wB, centerPt, 26, labelFor("w", Math.round(size.x * 100)));
-      drawDim(dExt1, dExt2, dLine, dTick1, dTick2, dLabel,
-        dA, dB, centerPt, 26, labelFor("d", Math.round(size.z * 100)));
+      // A callout with neither endpoint visible is measuring an edge that's entirely behind
+      // the machine — drawing it just puts a line across the product, so hide it instead.
+      drawDim(hGroup, hExt1, hExt2, hLine, hTick1, hTick2, hDot1, hDot2, hLabel,
+        pts[hEdge.ia], pts[hEdge.ib], hEdge.vis, centerPt, 26, labelFor("h", Math.round(size.y * 100)));
+      drawDim(wGroup, wExt1, wExt2, wLine, wTick1, wTick2, wDot1, wDot2, wLabel,
+        pts[wEdge.ia], pts[wEdge.ib], wEdge.vis, centerPt, 26, labelFor("w", Math.round(size.x * 100)));
+      drawDim(dGroup, dExt1, dExt2, dLine, dTick1, dTick2, dDot1, dDot2, dLabel,
+        pts[dEdge.ia], pts[dEdge.ib], dEdge.vis, centerPt, 26, labelFor("d", Math.round(size.z * 100)));
 
       requestAnimationFrame(dimLoop);
     }
