@@ -342,6 +342,12 @@
 
     let dimLoopRunning = false;
 
+    // Which base corner the footprint is currently anchored at, plus how much lower (px) a
+    // rival corner must project before the anchor moves to it. See the handover note in
+    // dimLoop().
+    let anchorSx = -1, anchorSz = 1;
+    const ANCHOR_HYSTERESIS = 8;
+
     // updateHotspot() (not just setting data-position) is required — model-viewer only
     // reads a hotspot's initial data-position once at creation and ignores later attribute
     // mutations on the slotted element itself. The 8 corner positions are fixed in the
@@ -431,13 +437,19 @@
       // Nearest base corner: on a ground plane, nearer points project lower on screen. This
       // is deterministic and moves continuously as the model turns — unlike the occlusion
       // flags this replaces, which flipped abruptly and needed the box inflating to behave.
-      let nearSx = -1, nearSz = -1, bestY = -Infinity;
+      //
+      // Handover to the next corner is held off until it is clearly lower, so that around
+      // the angles where two corners are level the anchor settles instead of flipping back
+      // and forth every frame. It still changes once per quadrant, which is unavoidable:
+      // past that point the old corner's edges run away behind the machine.
+      let nearSx = anchorSx, nearSz = anchorSz, bestY = pts[cornerIndex(anchorSx, -1, anchorSz)].y + ANCHOR_HYSTERESIS;
       for (const sx of [-1, 1]) {
         for (const sz of [-1, 1]) {
           const p = pts[cornerIndex(sx, -1, sz)];
           if (p.y > bestY) { bestY = p.y; nearSx = sx; nearSz = sz; }
         }
       }
+      anchorSx = nearSx; anchorSz = nearSz;
 
       const corner = pts[cornerIndex(nearSx, -1, nearSz)];
       const alongW = pts[cornerIndex(-nearSx, -1, nearSz)]; // same depth, opposite width
