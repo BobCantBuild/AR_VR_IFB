@@ -308,17 +308,20 @@
     let dimLoopRunning = false;
 
     function placeDimensionAnchors() {
-      if (!model.getDimensions || !model.getBoundingBoxCenter) return false;
+      if (!model.getDimensions || !model.getBoundingBoxCenter || !model.updateHotspot) return false;
       const size = model.getDimensions();
       const center = model.getBoundingBoxCenter();
-      const marginX = size.x * 0.12;
-      const marginY = size.y * 0.12;
+      const marginX = size.x * 0.05;
+      const marginY = size.y * 0.05;
       const frontZ = center.z + size.z / 2;
 
-      dotHTop.dataset.position = `${center.x - size.x / 2 - marginX} ${center.y + size.y / 2} ${frontZ}`;
-      dotHBottom.dataset.position = `${center.x - size.x / 2 - marginX} ${center.y - size.y / 2} ${frontZ}`;
-      dotWLeft.dataset.position = `${center.x - size.x / 2} ${center.y - size.y / 2 - marginY} ${frontZ}`;
-      dotWRight.dataset.position = `${center.x + size.x / 2} ${center.y - size.y / 2 - marginY} ${frontZ}`;
+      // updateHotspot() (not just setting data-position) is required — model-viewer only
+      // reads a hotspot's initial data-position once at creation and ignores later attribute
+      // mutations on the slotted element itself.
+      model.updateHotspot({ name: "hotspot-dim-h-top", position: `${center.x - size.x / 2 - marginX} ${center.y + size.y / 2} ${frontZ}` });
+      model.updateHotspot({ name: "hotspot-dim-h-bottom", position: `${center.x - size.x / 2 - marginX} ${center.y - size.y / 2} ${frontZ}` });
+      model.updateHotspot({ name: "hotspot-dim-w-left", position: `${center.x - size.x / 2} ${center.y - size.y / 2 - marginY} ${frontZ}` });
+      model.updateHotspot({ name: "hotspot-dim-w-right", position: `${center.x + size.x / 2} ${center.y - size.y / 2 - marginY} ${frontZ}` });
       return true;
     }
 
