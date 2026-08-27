@@ -489,7 +489,17 @@
 
       heightGroup.style.opacity = bestLen > 26 ? "1" : "0";
       strokeSegment(hLine, hTick1, hTick2, A, B, 5);
-      placeAlignedLabel(hLabel, A, B, hOut.px, hOut.py, 14, labelFor("h", Math.round(size.y * 100)));
+
+      // Height keeps a horizontal label: the footprint labels rotate because lying along the
+      // floor is what sells them as being on the ground, but a vertical line would put this
+      // one on its side and make it the hardest number on screen to read.
+      const hx = (A.x + B.x) / 2 + hOut.px * 14;
+      const hy = (A.y + B.y) / 2 + hOut.py * 14 + 4;
+      hLabel.setAttribute("x", hx);
+      hLabel.setAttribute("y", hy);
+      hLabel.setAttribute("text-anchor", "middle");
+      hLabel.removeAttribute("transform");
+      hLabel.textContent = labelFor("h", Math.round(size.y * 100));
 
       requestAnimationFrame(dimLoop);
     }
