@@ -180,7 +180,8 @@
       font-size: 12px;
       font-weight: bold;
       font-family: Arial, sans-serif;
-      text-anchor: middle;
+      /* text-anchor is set per-label in JS (end for the height label, middle for width) —
+         a CSS rule here would win over that, so it's intentionally left out. */
       paint-order: stroke;
       stroke: #000;
       stroke-width: 3px;
@@ -221,13 +222,20 @@
          overlays — Scene Viewer/Quick Look hand off to a native app and can never show page content). -->
     <div class="dim-badge" id="dimBadge">-- × -- × -- cm</div>
 
-    <!-- ✅ Anchor points for the on-model dimension sketch (positions are set from JS after load,
-         based on the model's real bounding box). Height line runs along the left side, width
-         line runs along the bottom front — classic blueprint-style external callouts. -->
-    <div slot="hotspot-dim-h-top" id="dotHTop" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-h-bottom" id="dotHBottom" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-w-left" id="dotWLeft" data-position="0 0 0" data-normal="0 0 1"></div>
-    <div slot="hotspot-dim-w-right" id="dotWRight" data-position="0 0 0" data-normal="0 0 1"></div>
+    <!-- ✅ Anchor points for the on-model dimension sketch — one at each of the 8 bounding-box
+         corners (positions set from JS after load, from the model's real bounding box). Every
+         frame we read where model-viewer projected these 8 points on screen and use their
+         min/max X/Y to draw the lines along the model's actual on-screen silhouette, so the
+         sketch stays correctly aligned no matter what angle it's viewed from (front, top-down
+         in AR, etc.) instead of being pinned to fixed points that only look right from one side. -->
+    <div slot="hotspot-dim-c0" id="dimC0" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-c1" id="dimC1" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-c2" id="dimC2" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-c3" id="dimC3" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-c4" id="dimC4" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-c5" id="dimC5" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-c6" id="dimC6" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-c7" id="dimC7" data-position="0 0 0" data-normal="0 0 1"></div>
 
     <svg class="dim-svg" id="dimSvg">
       <line id="hLine" class="dim-line"></line>
@@ -290,10 +298,7 @@
     // ✅ On-model dimension sketch: places anchor points just outside the model's real
     // bounding box, then every frame reads where model-viewer projected them on screen
     // and draws blueprint-style callout lines/ticks/labels between them.
-    const dotHTop = document.getElementById("dotHTop");
-    const dotHBottom = document.getElementById("dotHBottom");
-    const dotWLeft = document.getElementById("dotWLeft");
-    const dotWRight = document.getElementById("dotWRight");
+    const cornerEls = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => document.getElementById(`dimC${i}`));
 
     const hLine = document.getElementById("hLine");
     const hTick1 = document.getElementById("hTick1");
@@ -307,21 +312,25 @@
 
     let dimLoopRunning = false;
 
+    // updateHotspot() (not just setting data-position) is required — model-viewer only
+    // reads a hotspot's initial data-position once at creation and ignores later attribute
+    // mutations on the slotted element itself. The 8 corner positions are fixed in the
+    // model's own local space, so this only needs to run once — model-viewer keeps their
+    // on-screen projection in sync with the camera automatically every frame.
     function placeDimensionAnchors() {
       if (!model.getDimensions || !model.getBoundingBoxCenter || !model.updateHotspot) return false;
       const size = model.getDimensions();
       const center = model.getBoundingBoxCenter();
-      const marginX = size.x * 0.05;
-      const marginY = size.y * 0.05;
-      const frontZ = center.z + size.z / 2;
-
-      // updateHotspot() (not just setting data-position) is required — model-viewer only
-      // reads a hotspot's initial data-position once at creation and ignores later attribute
-      // mutations on the slotted element itself.
-      model.updateHotspot({ name: "hotspot-dim-h-top", position: `${center.x - size.x / 2 - marginX} ${center.y + size.y / 2} ${frontZ}` });
-      model.updateHotspot({ name: "hotspot-dim-h-bottom", position: `${center.x - size.x / 2 - marginX} ${center.y - size.y / 2} ${frontZ}` });
-      model.updateHotspot({ name: "hotspot-dim-w-left", position: `${center.x - size.x / 2} ${center.y - size.y / 2 - marginY} ${frontZ}` });
-      model.updateHotspot({ name: "hotspot-dim-w-right", position: `${center.x + size.x / 2} ${center.y - size.y / 2 - marginY} ${frontZ}` });
+      const hx = size.x / 2, hy = size.y / 2, hz = size.z / 2;
+      let i = 0;
+      for (const sx of [-1, 1]) {
+        for (const sy of [-1, 1]) {
+          for (const sz of [-1, 1]) {
+            model.updateHotspot({ name: `hotspot-dim-c${i}`, position: `${center.x + sx * hx} ${center.y + sy * hy} ${center.z + sz * hz}` });
+            i++;
+          }
+        }
+      }
       return true;
     }
 
@@ -335,40 +344,50 @@
       return { x: r.left + r.width / 2 - mvRect.left, y: r.top + r.height / 2 - mvRect.top };
     }
 
-    function drawCallout(lineEl, tick1El, tick2El, labelEl, p1, p2, text, labelOffset) {
-      lineEl.setAttribute("x1", p1.x); lineEl.setAttribute("y1", p1.y);
-      lineEl.setAttribute("x2", p2.x); lineEl.setAttribute("y2", p2.y);
-
-      const dx = p2.x - p1.x, dy = p2.y - p1.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const perp = { x: -dy / len, y: dx / len };
-      const tick = 6;
-
-      tick1El.setAttribute("x1", p1.x - perp.x * tick); tick1El.setAttribute("y1", p1.y - perp.y * tick);
-      tick1El.setAttribute("x2", p1.x + perp.x * tick); tick1El.setAttribute("y2", p1.y + perp.y * tick);
-      tick2El.setAttribute("x1", p2.x - perp.x * tick); tick2El.setAttribute("y1", p2.y - perp.y * tick);
-      tick2El.setAttribute("x2", p2.x + perp.x * tick); tick2El.setAttribute("y2", p2.y + perp.y * tick);
-
-      const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-      labelEl.setAttribute("x", mid.x + perp.x * labelOffset);
-      labelEl.setAttribute("y", mid.y + perp.y * labelOffset);
-      labelEl.textContent = text;
-    }
-
+    // Every frame: project the 8 bounding-box corners to screen space and take their
+    // min/max X/Y. That's exactly the model's true on-screen silhouette footprint for the
+    // current camera angle (front, top-down in AR, whatever) — so lines drawn along those
+    // edges stay correctly attached to the model instead of cutting through it.
     function dimLoop() {
       const mvRect = model.getBoundingClientRect();
       const size = model.getDimensions();
 
-      drawCallout(
-        hLine, hTick1, hTick2, hLabel,
-        screenPoint(dotHBottom, mvRect), screenPoint(dotHTop, mvRect),
-        labelFor("h", Math.round(size.y * 100)), -14
-      );
-      drawCallout(
-        wLine, wTick1, wTick2, wLabel,
-        screenPoint(dotWLeft, mvRect), screenPoint(dotWRight, mvRect),
-        labelFor("w", Math.round(size.x * 100)), 14
-      );
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      cornerEls.forEach((el) => {
+        const p = screenPoint(el, mvRect);
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+
+      const margin = 14, tick = 6;
+
+      // Height line: vertical, just outside the left edge of the footprint
+      const lx = minX - margin;
+      hLine.setAttribute("x1", lx); hLine.setAttribute("y1", minY);
+      hLine.setAttribute("x2", lx); hLine.setAttribute("y2", maxY);
+      hTick1.setAttribute("x1", lx - tick); hTick1.setAttribute("y1", minY);
+      hTick1.setAttribute("x2", lx + tick); hTick1.setAttribute("y2", minY);
+      hTick2.setAttribute("x1", lx - tick); hTick2.setAttribute("y1", maxY);
+      hTick2.setAttribute("x2", lx + tick); hTick2.setAttribute("y2", maxY);
+      hLabel.setAttribute("x", lx - 8);
+      hLabel.setAttribute("y", (minY + maxY) / 2);
+      hLabel.setAttribute("text-anchor", "end");
+      hLabel.textContent = labelFor("h", Math.round(size.y * 100));
+
+      // Width line: horizontal, just outside the bottom edge of the footprint
+      const by = maxY + margin;
+      wLine.setAttribute("x1", minX); wLine.setAttribute("y1", by);
+      wLine.setAttribute("x2", maxX); wLine.setAttribute("y2", by);
+      wTick1.setAttribute("x1", minX); wTick1.setAttribute("y1", by - tick);
+      wTick1.setAttribute("x2", minX); wTick1.setAttribute("y2", by + tick);
+      wTick2.setAttribute("x1", maxX); wTick2.setAttribute("y1", by - tick);
+      wTick2.setAttribute("x2", maxX); wTick2.setAttribute("y2", by + tick);
+      wLabel.setAttribute("x", (minX + maxX) / 2);
+      wLabel.setAttribute("y", by + 16);
+      wLabel.setAttribute("text-anchor", "middle");
+      wLabel.textContent = labelFor("w", Math.round(size.x * 100));
 
       requestAnimationFrame(dimLoop);
     }
