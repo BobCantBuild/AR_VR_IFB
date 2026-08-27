@@ -428,16 +428,25 @@
     // Draws one dimension callout: a line parallel to the product edge a→b but pushed
     // `offset` px away from the model, thin extension lines connecting the two, end caps,
     // and a horizontal label. `centerPt` is used to decide which way is "away from the model".
-    function drawDim(group, ext1, ext2, lineEl, t1, t2, dot1, dot2, labelEl, a, b, vis, minVis, centerPt, silhouette, offset, text) {
-      // Height and width run roughly across the view, so one visible end is enough to place
-      // them. Depth recedes away from the camera, and an occluded far end means the edge
-      // disappears behind the machine — drawing it would run the line over the product, so
-      // depth demands both ends visible and simply hides itself the rest of the time.
-      group.style.opacity = vis < minVis ? "0" : "1";
-      if (vis < minVis) return;
-
+    function drawDim(group, ext1, ext2, lineEl, t1, t2, dot1, dot2, labelEl, a, b, va, vb, centerPt, silhouette, offset, text) {
       const dx = b.x - a.x, dy = b.y - a.y;
       const len = Math.hypot(dx, dy) || 1;
+
+      // An edge pointing nearly straight away from the camera collapses to a stub on screen
+      // — that's depth viewed head-on, where the number has nowhere to sit and crowds the
+      // other labels, so drop the callout until the edge opens up again. This replaces the
+      // old both-ends-visible test: measuring along the base means the rear corners are
+      // permanently hidden behind the body, so that test made depth never draw at all.
+      if (len < 34) { group.style.opacity = "0"; return; }
+      group.style.opacity = "1";
+
+      // An endpoint behind the machine gets no dot or leader line — those are the only parts
+      // that could land on the product, as the dimension line itself clears the silhouette.
+      ext1.style.display = va ? "" : "none";
+      dot1.style.display = va ? "" : "none";
+      ext2.style.display = vb ? "" : "none";
+      dot2.style.display = vb ? "" : "none";
+
       let px = -dy / len, py = dx / len;
 
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
@@ -501,8 +510,8 @@
       // measuring it looks wrong next to the machine's visible near silhouette.
       // NB: model-viewer prefixes the attribute, so data-visibility-attribute="visible"
       // actually toggles `data-visible` on the hotspot — not `visible`.
-      const visCount = (ia, ib) =>
-        (cornerEls[ia].hasAttribute("data-visible") ? 1 : 0) + (cornerEls[ib].hasAttribute("data-visible") ? 1 : 0);
+      const isVis = (i) => cornerEls[i].hasAttribute("data-visible");
+      const visCount = (ia, ib) => (isVis(ia) ? 1 : 0) + (isVis(ib) ? 1 : 0);
 
       // Picks the best edge from a candidate list: most-visible first, then the caller's
       // screen-space preference (leftmost / lowest / rightmost) as the tiebreak.
@@ -548,11 +557,14 @@
       // A callout with neither endpoint visible is measuring an edge that's entirely behind
       // the machine — drawing it just puts a line across the product, so hide it instead.
       drawDim(hGroup, hExt1, hExt2, hLine, hTick1, hTick2, hDot1, hDot2, hLabel,
-        pts[hEdge.ia], pts[hEdge.ib], hEdge.vis, 1, centerPt, pts, 22, labelFor("h", Math.round(size.y * 100)));
+        pts[hEdge.ia], pts[hEdge.ib], isVis(hEdge.ia), isVis(hEdge.ib), centerPt, pts, 22,
+        labelFor("h", Math.round(size.y * 100)));
       drawDim(wGroup, wExt1, wExt2, wLine, wTick1, wTick2, wDot1, wDot2, wLabel,
-        pts[wEdge.ia], pts[wEdge.ib], wEdge.vis, 1, centerPt, pts, 22, labelFor("w", Math.round(size.x * 100)));
+        pts[wEdge.ia], pts[wEdge.ib], isVis(wEdge.ia), isVis(wEdge.ib), centerPt, pts, 22,
+        labelFor("w", Math.round(size.x * 100)));
       drawDim(dGroup, dExt1, dExt2, dLine, dTick1, dTick2, dDot1, dDot2, dLabel,
-        pts[dEdge.ia], pts[dEdge.ib], dEdge.vis, 2, centerPt, pts, 22, labelFor("d", Math.round(size.z * 100)));
+        pts[dEdge.ia], pts[dEdge.ib], isVis(dEdge.ia), isVis(dEdge.ib), centerPt, pts, 22,
+        labelFor("d", Math.round(size.z * 100)));
 
       requestAnimationFrame(dimLoop);
     }
