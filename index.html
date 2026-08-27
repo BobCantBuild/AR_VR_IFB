@@ -181,6 +181,46 @@
       transition: opacity 0.15s linear;
     }
 
+    /* ✅ Dimensions toggle — the one interactive element in the overlay, so unlike the
+       graphics it opts back into pointer events. */
+    .dim-toggle {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(0, 0, 0, 0.55);
+      color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      cursor: pointer;
+      pointer-events: auto;
+      z-index: 600;
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+      transition: background 0.15s linear, color 0.15s linear, border-color 0.15s linear;
+    }
+
+    .dim-toggle svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .dim-toggle[aria-pressed="true"] {
+      background: #ffcc00;
+      border-color: #ffcc00;
+      color: #000;
+    }
+
     .dim-label {
       fill: #ffffff;
       font-size: 11px;
@@ -271,6 +311,20 @@
         <text id="hLabel" class="dim-label"></text>
       </g>
     </svg>
+
+    <!-- ✅ Dimensions toggle. Lives inside <model-viewer> so it is part of the WebXR
+         dom-overlay and stays tappable during an AR session, where the page's own bottom
+         bar is not rendered. -->
+    <button class="dim-toggle" id="dimToggle" type="button"
+            aria-pressed="true" aria-label="Show dimensions" title="Show dimensions">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="7.5" x2="3" y2="16.5"></line>
+        <line x1="21" y1="7.5" x2="21" y2="16.5"></line>
+        <polyline points="7,9 4,12 7,15"></polyline>
+        <polyline points="17,9 20,12 17,15"></polyline>
+      </svg>
+    </button>
   </model-viewer>
 
   <!-- ✅ Buttons fixed at bottom (no scroll) -->
@@ -339,6 +393,30 @@
     const dTick1 = document.getElementById("dTick1");
     const dTick2 = document.getElementById("dTick2");
     const dLabel = document.getElementById("dLabel");
+
+    const dimToggle = document.getElementById("dimToggle");
+    const dimSvg = document.getElementById("dimSvg");
+
+    // On the page the dimensions are the point, so they start on. Entering AR starts them
+    // off instead: there the camera feed is the subject and the graphics are something the
+    // user asks for. Leaving AR restores the page default.
+    let dimensionsVisible = true;
+
+    function applyDimensionVisibility() {
+      dimSvg.style.display = dimensionsVisible ? "" : "none";
+      dimBadge.style.display = dimensionsVisible ? "" : "none";
+      dimToggle.setAttribute("aria-pressed", String(dimensionsVisible));
+      const label = dimensionsVisible ? "Hide dimensions" : "Show dimensions";
+      dimToggle.setAttribute("aria-label", label);
+      dimToggle.setAttribute("title", label);
+    }
+
+    dimToggle.addEventListener("click", () => {
+      dimensionsVisible = !dimensionsVisible;
+      applyDimensionVisibility();
+      gtag('event', dimensionsVisible ? 'dimensions_shown' : 'dimensions_hidden',
+        { event_category: 'dimensions', event_label: 'IFB_WM' });
+    });
 
     let dimLoopRunning = false;
 
@@ -428,6 +506,10 @@
     // ground plane a small projection error looks like perspective, whereas a line floating
     // beside the product next to nothing reads as misaligned.
     function dimLoop() {
+      // Hidden means no projection work at all — this runs every frame, and during an AR
+      // session that is battery on a phone already driving the camera and tracking.
+      if (!dimensionsVisible) { requestAnimationFrame(dimLoop); return; }
+
       const mvRect = model.getBoundingClientRect();
       const size = model.getDimensions();
       const pts = cornerEls.map((el) => screenPoint(el, mvRect));
@@ -519,6 +601,7 @@
     model.addEventListener("load", () => {
       loader.style.display = "none";
       updateDimensionBadge();
+      applyDimensionVisibility();
       if (placeDimensionAnchors() && !dimLoopRunning) {
         dimLoopRunning = true;
         requestAnimationFrame(dimLoop);
@@ -528,9 +611,13 @@
 
     model.addEventListener("ar-status", (event) => {
       if (event.detail.status === "session-started") {
+        dimensionsVisible = false; // clean camera view until the user asks for dimensions
+        applyDimensionVisibility();
         gtag('event','ar_session_started',{event_category:'AR',event_label:'IFB_WM'});
       }
       if (event.detail.status === "not-presenting") {
+        dimensionsVisible = true; // back on the page, where the dimensions are the point
+        applyDimensionVisibility();
         gtag('event','ar_session_ended',{event_category:'AR',event_label:'IFB_WM'});
       }
       if (event.detail.status === "failed") {
