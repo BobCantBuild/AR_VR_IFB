@@ -428,7 +428,7 @@
     // Draws one dimension callout: a line parallel to the product edge a→b but pushed
     // `offset` px away from the model, thin extension lines connecting the two, end caps,
     // and a horizontal label. `centerPt` is used to decide which way is "away from the model".
-    function drawDim(group, ext1, ext2, lineEl, t1, t2, dot1, dot2, labelEl, a, b, vis, minVis, centerPt, offset, text) {
+    function drawDim(group, ext1, ext2, lineEl, t1, t2, dot1, dot2, labelEl, a, b, vis, minVis, centerPt, silhouette, offset, text) {
       // Height and width run roughly across the view, so one visible end is enough to place
       // them. Depth recedes away from the camera, and an occluded far end means the edge
       // disappears behind the machine — drawing it would run the line over the product, so
@@ -443,8 +443,18 @@
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       if ((mx - centerPt.x) * px + (my - centerPt.y) * py < 0) { px = -px; py = -py; }
 
-      const A = { x: a.x + px * offset, y: a.y + py * offset };
-      const B = { x: b.x + px * offset, y: b.y + py * offset };
+      // Slide the dimension line out past the entire silhouette rather than a fixed distance
+      // from its edge. The chosen edge is often the near corner edge, which projects into the
+      // middle of the outline — a fixed offset there lays the line straight over the machine.
+      let support = 0;
+      for (const q of silhouette) {
+        const d = (q.x - a.x) * px + (q.y - a.y) * py;
+        if (d > support) support = d;
+      }
+      const off = support + offset;
+
+      const A = { x: a.x + px * off, y: a.y + py * off };
+      const B = { x: b.x + px * off, y: b.y + py * off };
 
       // Extension lines start slightly off the product so they don't touch it
       const gap = 4;
@@ -543,11 +553,11 @@
       // A callout with neither endpoint visible is measuring an edge that's entirely behind
       // the machine — drawing it just puts a line across the product, so hide it instead.
       drawDim(hGroup, hExt1, hExt2, hLine, hTick1, hTick2, hDot1, hDot2, hLabel,
-        pts[hEdge.ia], pts[hEdge.ib], hEdge.vis, 1, centerPt, 26, labelFor("h", Math.round(size.y * 100)));
+        pts[hEdge.ia], pts[hEdge.ib], hEdge.vis, 1, centerPt, pts, 22, labelFor("h", Math.round(size.y * 100)));
       drawDim(wGroup, wExt1, wExt2, wLine, wTick1, wTick2, wDot1, wDot2, wLabel,
-        pts[wEdge.ia], pts[wEdge.ib], wEdge.vis, 1, centerPt, 26, labelFor("w", Math.round(size.x * 100)));
+        pts[wEdge.ia], pts[wEdge.ib], wEdge.vis, 1, centerPt, pts, 22, labelFor("w", Math.round(size.x * 100)));
       drawDim(dGroup, dExt1, dExt2, dLine, dTick1, dTick2, dDot1, dDot2, dLabel,
-        pts[dEdge.ia], pts[dEdge.ib], dEdge.vis, 2, centerPt, 26, labelFor("d", Math.round(size.z * 100)));
+        pts[dEdge.ia], pts[dEdge.ib], dEdge.vis, 2, centerPt, pts, 22, labelFor("d", Math.round(size.z * 100)));
 
       requestAnimationFrame(dimLoop);
     }
