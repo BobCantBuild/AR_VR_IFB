@@ -525,28 +525,23 @@
       }
       const hEdge = pickEdge(hEdges);
 
-      // Width → edge across the machine, prefer visible, tiebreak lowest on screen so the
-      // familiar bottom-front edge wins whenever it is as visible as the alternatives.
+      // Width and depth are both measured along the base only — never the top edges. They
+      // describe the machine's footprint, so reading them off the floor line is what makes
+      // them legible next to the product.
+      // Width → bottom edge across the machine, tiebreak lowest on screen.
       const wEdges = [];
-      for (const sy of [-1, 1]) {
-        for (const sz of [-1, 1]) {
-          const ia = cornerIndex(-1, sy, sz), ib = cornerIndex(1, sy, sz);
-          wEdges.push({ ia, ib, score: (pts[ia].y + pts[ib].y) / 2 });
-        }
+      for (const sz of [-1, 1]) {
+        const ia = cornerIndex(-1, -1, sz), ib = cornerIndex(1, -1, sz);
+        wEdges.push({ ia, ib, score: (pts[ia].y + pts[ib].y) / 2 });
       }
       const wEdge = pickEdge(wEdges);
 
-      // Depth → edge running front-to-back. All four are candidates, not just the bottom
-      // pair: looking down at the machine (the usual AR pose) hides the rear-bottom corner
-      // behind the body but leaves the top edge fully in view, so depth can still be drawn
-      // along the top. Rightmost wins ties, keeping depth clear of height on the left and
-      // width along the bottom.
+      // Depth → bottom edge running front-to-back. Rightmost wins ties, keeping depth clear
+      // of height on the left and width along the front.
       const dEdges = [];
       for (const sx of [-1, 1]) {
-        for (const sy of [-1, 1]) {
-          const ia = cornerIndex(sx, sy, 1), ib = cornerIndex(sx, sy, -1);
-          dEdges.push({ ia, ib, score: (pts[ia].x + pts[ib].x) / 2 });
-        }
+        const ia = cornerIndex(sx, -1, 1), ib = cornerIndex(sx, -1, -1);
+        dEdges.push({ ia, ib, score: (pts[ia].x + pts[ib].x) / 2 });
       }
       const dEdge = pickEdge(dEdges);
 
