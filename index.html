@@ -166,7 +166,7 @@
     id="wmModel"
     src="IFB_WM.glb"
     ar
-    ar-modes="scene-viewer webxr"
+    ar-modes="webxr scene-viewer"
     ar-placement="floor"
     ar-scale="auto"
     camera-controls
@@ -179,10 +179,11 @@
     exposure="1.1"
     tone-mapping="commerce"
     alt="IFB Washing Machine 3D Model">
+    <!-- ✅ Dimensions badge (TEMP values — replace with real datasheet H x W x D + weight, then remove the "computed live" line).
+         Lives INSIDE model-viewer so it also renders as an overlay during WebXR AR sessions (only WebXR supports custom
+         overlays — Scene Viewer/Quick Look hand off to a native app and can never show page content). -->
+    <div class="dim-badge" id="dimBadge">-- × -- × -- cm</div>
   </model-viewer>
-
-  <!-- ✅ Dimensions badge (TEMP values — replace with real datasheet H x W x D + weight, then remove the "computed live" line) -->
-  <div class="dim-badge" id="dimBadge">-- × -- × -- cm</div>
 
   <!-- ✅ Buttons fixed at bottom (no scroll) -->
   <div class="bottom-bar">
