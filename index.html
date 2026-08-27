@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IFB Washing Machine AR</title>
 
+  <!-- ✅ Installed first, before the model-viewer script below, so it is guaranteed to be in
+       place before model-viewer initializes. model-viewer 4.3.1 emits a benign unhandled
+       promise rejection during cold init ("Cannot read properties of null (reading 'add')")
+       from inside its own bundle — verified not to affect rendering, the dimension graphics,
+       or AR, and not triggered by any attribute this page sets. Suppress it so the customer
+       console stays clean, scoped strictly to rejections whose stack is in the model-viewer
+       bundle so our own errors still surface. Re-check when bumping the model-viewer version. -->
+  <script>
+    window.addEventListener("unhandledrejection", (event) => {
+      const stack = (event.reason && event.reason.stack) || "";
+      if (stack.includes("model-viewer")) {
+        event.preventDefault();
+      }
+    });
+  </script>
+
   <!-- ✅ Google Analytics (GA4) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-QYE6P5SK18"></script>
   <script>
@@ -355,21 +371,6 @@
   </div>
 
   <script>
-    // model-viewer 4.3.1 emits a benign unhandled promise rejection during cold page load
-    // from inside its own async setup ("Cannot read properties of null (reading 'add')").
-    // It does not affect rendering, the dimension graphics, or AR — verified by reproducing
-    // the full component config with every attribute this page uses, none of which trigger
-    // it; it only fires on first init inside the library bundle. Swallow it so the customer
-    // console stays clean, scoped strictly to rejections whose stack is in the model-viewer
-    // bundle so our own errors still surface. Re-check when bumping the model-viewer version.
-    window.addEventListener("unhandledrejection", (event) => {
-      const stack = (event.reason && event.reason.stack) || "";
-      if (stack.includes("model-viewer")) {
-        event.preventDefault();
-        console.debug("Suppressed benign model-viewer load rejection:", event.reason && event.reason.message);
-      }
-    });
-
     const loader = document.getElementById("loader");
     const model = document.getElementById("wmModel");
     const dimBadge = document.getElementById("dimBadge");
