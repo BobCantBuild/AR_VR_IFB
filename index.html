@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IFB Washing Machine AR</title>
+
+  <!-- ✅ Google Analytics (GA4) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-QYE6P5SK18"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-QYE6P5SK18', { anonymize_ip: true });
+  </script>
+
+  <!-- ✅ 3D + AR Viewer -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+  <style>
+    :root{
+      --bottomBarHeight: 92px; /* space for buttons bar */
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0b0b0b;
+      color: white;
+      text-align: center;
+      overflow: hidden; /* ✅ prevent scrolling */
+    }
+
+    h2 { margin: 12px 0 4px; font-size: 18px; }
+    p  { margin: 0 0 8px; opacity: 0.85; font-size: 13px; }
+
+    /* ✅ Make model viewer fit into same screen */
+    model-viewer {
+      width: 100%;
+      height: calc(100vh - var(--bottomBarHeight) - 55px);
+      background: #111;
+    }
+
+    /* ✅ Bottom Fixed Bar */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: var(--bottomBarHeight);
+      background: rgba(15, 15, 15, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      gap: 10px;
+      justify-content: space-around;
+      align-items: center;
+      padding: 10px;
+      box-sizing: border-box;
+      z-index: 1000;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 10px;
+      border-radius: 12px;
+      font-weight: bold;
+      text-decoration: none;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+
+    .btn-know {
+      background: #ffcc00;
+      color: black;
+    }
+
+    .btn-demo {
+      background: #ffcc00;
+      color: black;
+    }
+
+    .btn-ar {
+      background: #00ff99;
+      color: black;
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    /* ✅ Loader Overlay */
+    .loader {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .spinner {
+      width: 55px;
+      height: 55px;
+      border-radius: 50%;
+      border: 6px solid rgba(255,255,255,0.15);
+      border-top: 6px solid #ffcc00;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loader span {
+      font-size: 14px;
+      opacity: 0.85;
+    }
+
+    /* ✅ Dimensions badge */
+    .dim-badge {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 204, 0, 0.5);
+      color: #ffcc00;
+      font-size: 12px;
+      font-weight: bold;
+      padding: 6px 10px;
+      border-radius: 8px;
+      z-index: 500;
+      pointer-events: none;
+    }
+
+    .btn-ar.disabled {
+      opacity: 0.4;
+      animation: none;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ✅ Loading screen -->
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <span>Loading 3D model… Please wait</span>
+  </div>
+
+  <h2>IFB Washing Machine - 3D + AR</h2>
+  <p>Rotate / Zoom. Tap AR to place it in your room.</p>
+
+  <model-viewer
+    id="wmModel"
+    src="IFB_WM.glb"
+    ar
+    ar-modes="scene-viewer webxr"
+    ar-placement="floor"
+    ar-scale="auto"
+    camera-controls
+    auto-rotate
+    auto-rotate-delay="0"
+    rotation-per-second="30deg"
+    shadow-intensity="1"
+    shadow-softness="0.8"
+    environment-image="neutral"
+    exposure="1.1"
+    tone-mapping="commerce"
+    alt="IFB Washing Machine 3D Model">
+  </model-viewer>
+
+  <!-- ✅ Dimensions badge (TEMP values — replace with real datasheet H x W x D + weight, then remove the "computed live" line) -->
+  <div class="dim-badge" id="dimBadge">-- × -- × -- cm</div>
+
+  <!-- ✅ Buttons fixed at bottom (no scroll) -->
+  <div class="bottom-bar">
+    <a class="btn btn-ar" href="#" onclick="startAR(); return false;">
+      View in AR
+    </a>
+
+    <a class="btn btn-know" href="https://www.ifbappliances.com/" target="_blank"
+       onclick="gtag('event','click_know_more',{event_category:'button',event_label:'Know More'});">
+      Know More
+    </a>
+
+    <a class="btn btn-demo" href="https://wa.me/918438883817" target="_blank"
+       onclick="gtag('event','click_book_demo',{event_category:'button',event_label:'Book Demo WhatsApp'});">
+      Book Demo
+    </a>
+  </div>
+
+  <script>
+    const loader = document.getElementById("loader");
+    const model = document.getElementById("wmModel");
+    const dimBadge = document.getElementById("dimBadge");
+    const arBtn = document.querySelector(".btn-ar");
+
+    // ⚠️ TODO: replace with real datasheet values (height x width x depth, cm) and weight (kg)
+    // once you have the spec sheet. Until then this reads the live size straight off the
+    // 3D model's bounding box, so it stays roughly accurate even with a placeholder model.
+    const REAL_DIMENSIONS_CM = null; // e.g. { height: 85, width: 60, depth: 60, weightKg: 62 }
+
+    function updateDimensionBadge() {
+      if (REAL_DIMENSIONS_CM) {
+        const { height, width, depth, weightKg } = REAL_DIMENSIONS_CM;
+        dimBadge.textContent = `H${height} × W${width} × D${depth} cm` +
+          (weightKg ? ` · ${weightKg} kg` : "");
+        return;
+      }
+      // Fallback: compute live from the model's actual bounding box (meters -> cm)
+      const size = model.getDimensions ? model.getDimensions() : null;
+      if (size) {
+        const h = Math.round(size.y * 100);
+        const w = Math.round(size.x * 100);
+        const d = Math.round(size.z * 100);
+        dimBadge.textContent = `H${h} × W${w} × D${d} cm (est.)`;
+      }
+    }
+
+    model.addEventListener("load", () => {
+      loader.style.display = "none";
+      updateDimensionBadge();
+      gtag('event','model_loaded',{event_category:'3d',event_label:'IFB_WM'});
+    });
+
+    model.addEventListener("ar-status", (event) => {
+      if (event.detail.status === "session-started") {
+        gtag('event','ar_session_started',{event_category:'AR',event_label:'IFB_WM'});
+      }
+      if (event.detail.status === "not-presenting") {
+        gtag('event','ar_session_ended',{event_category:'AR',event_label:'IFB_WM'});
+      }
+      if (event.detail.status === "failed") {
+        gtag('event','ar_failed',{event_category:'AR',event_label:'IFB_WM'});
+        alert("AR couldn't start. Point your camera at a flat, well-lit surface (like a floor) and try again.");
+      }
+    });
+
+    // Grey out the AR button on devices/browsers that can't do AR at all
+    // (desktop, unsupported browsers, iOS Safari without a usdz file, etc.)
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        if (model.canActivateAR === false) {
+          arBtn.classList.add("disabled");
+          arBtn.textContent = "AR not supported here";
+        }
+      }, 800); // model-viewer needs a beat to finish its AR capability check
+    });
+
+    function startAR(){
+      if (arBtn.classList.contains("disabled")) return;
+      gtag('event','click_ar_button',{event_category:'button',event_label:'AR CTA'});
+      model.activateAR();
+    }
+  </script>
+
+</body>
+</html>
