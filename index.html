@@ -504,53 +504,47 @@
 
       const centerPt = pts.reduce((acc, p) => ({ x: acc.x + p.x / 8, y: acc.y + p.y / 8 }), { x: 0, y: 0 });
 
-      // How many of an edge's two endpoints model-viewer currently reports as un-occluded.
-      // Preferring edges on the near side is the fix for the height line latching onto a
-      // rear edge: a back edge is foreshortened and vertically offset by perspective, so
-      // measuring it looks wrong next to the machine's visible near silhouette.
       // NB: model-viewer prefixes the attribute, so data-visibility-attribute="visible"
       // actually toggles `data-visible` on the hotspot — not `visible`.
       const isVis = (i) => cornerEls[i].hasAttribute("data-visible");
-      const visCount = (ia, ib) => (isVis(ia) ? 1 : 0) + (isVis(ib) ? 1 : 0);
 
-      // Picks the best edge from a candidate list: most-visible first, then the caller's
-      // screen-space preference (leftmost / lowest / rightmost) as the tiebreak.
+      // Of the parallel edges measuring one axis, take whichever projects longest. The
+      // longest projection is the edge most square-on to the camera, which is both the
+      // easiest to read and reliably on the near side — a rear or steeply receding edge
+      // foreshortens, which is what previously left the height line short of the machine
+      // and squashed depth into a stub beside the height label. Length also degrades
+      // gracefully as the model turns, where occlusion flags flip abruptly.
       function pickEdge(candidates) {
         let best = null;
         for (const c of candidates) {
-          c.vis = visCount(c.ia, c.ib);
-          if (!best || c.vis > best.vis || (c.vis === best.vis && c.score > best.score)) best = c;
+          const dx = pts[c.ia].x - pts[c.ib].x, dy = pts[c.ia].y - pts[c.ib].y;
+          c.len = Math.hypot(dx, dy);
+          if (!best || c.len > best.len) best = c;
         }
         return best;
       }
 
-      // Height → vertical edge, prefer visible, tiebreak leftmost (negated for "higher is better")
+      // Height → the vertical edge standing most square-on to the camera
       const hEdges = [];
       for (const sx of [-1, 1]) {
         for (const sz of [-1, 1]) {
-          const ia = cornerIndex(sx, 1, sz), ib = cornerIndex(sx, -1, sz);
-          hEdges.push({ ia, ib, score: -(pts[ia].x + pts[ib].x) / 2 });
+          hEdges.push({ ia: cornerIndex(sx, 1, sz), ib: cornerIndex(sx, -1, sz) });
         }
       }
       const hEdge = pickEdge(hEdges);
 
       // Width and depth are both measured along the base only — never the top edges. They
-      // describe the machine's footprint, so reading them off the floor line is what makes
+      // describe the machine's footprint, so reading them off the floor line is what keeps
       // them legible next to the product.
-      // Width → bottom edge across the machine, tiebreak lowest on screen.
       const wEdges = [];
       for (const sz of [-1, 1]) {
-        const ia = cornerIndex(-1, -1, sz), ib = cornerIndex(1, -1, sz);
-        wEdges.push({ ia, ib, score: (pts[ia].y + pts[ib].y) / 2 });
+        wEdges.push({ ia: cornerIndex(-1, -1, sz), ib: cornerIndex(1, -1, sz) });
       }
       const wEdge = pickEdge(wEdges);
 
-      // Depth → bottom edge running front-to-back. Rightmost wins ties, keeping depth clear
-      // of height on the left and width along the front.
       const dEdges = [];
       for (const sx of [-1, 1]) {
-        const ia = cornerIndex(sx, -1, 1), ib = cornerIndex(sx, -1, -1);
-        dEdges.push({ ia, ib, score: (pts[ia].x + pts[ib].x) / 2 });
+        dEdges.push({ ia: cornerIndex(sx, -1, 1), ib: cornerIndex(sx, -1, -1) });
       }
       const dEdge = pickEdge(dEdges);
 
