@@ -148,6 +148,43 @@
       animation: none;
       pointer-events: none;
     }
+
+    /* ✅ On-model dimension sketch (height/width callout lines) */
+    [slot^="hotspot-dim-"] {
+      display: block;
+      width: 1px;
+      height: 1px;
+      border: none;
+      padding: 0;
+      background: transparent;
+      pointer-events: none;
+    }
+
+    .dim-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+      overflow: visible;
+    }
+
+    .dim-line, .dim-tick {
+      stroke: #ffcc00;
+      stroke-width: 1.5;
+    }
+
+    .dim-label {
+      fill: #ffcc00;
+      font-size: 12px;
+      font-weight: bold;
+      font-family: Arial, sans-serif;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: #000;
+      stroke-width: 3px;
+    }
   </style>
 </head>
 
@@ -183,6 +220,26 @@
          Lives INSIDE model-viewer so it also renders as an overlay during WebXR AR sessions (only WebXR supports custom
          overlays — Scene Viewer/Quick Look hand off to a native app and can never show page content). -->
     <div class="dim-badge" id="dimBadge">-- × -- × -- cm</div>
+
+    <!-- ✅ Anchor points for the on-model dimension sketch (positions are set from JS after load,
+         based on the model's real bounding box). Height line runs along the left side, width
+         line runs along the bottom front — classic blueprint-style external callouts. -->
+    <div slot="hotspot-dim-h-top" id="dotHTop" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-h-bottom" id="dotHBottom" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-w-left" id="dotWLeft" data-position="0 0 0" data-normal="0 0 1"></div>
+    <div slot="hotspot-dim-w-right" id="dotWRight" data-position="0 0 0" data-normal="0 0 1"></div>
+
+    <svg class="dim-svg" id="dimSvg">
+      <line id="hLine" class="dim-line"></line>
+      <line id="hTick1" class="dim-tick"></line>
+      <line id="hTick2" class="dim-tick"></line>
+      <text id="hLabel" class="dim-label"></text>
+
+      <line id="wLine" class="dim-line"></line>
+      <line id="wTick1" class="dim-tick"></line>
+      <line id="wTick2" class="dim-tick"></line>
+      <text id="wLabel" class="dim-label"></text>
+    </svg>
   </model-viewer>
 
   <!-- ✅ Buttons fixed at bottom (no scroll) -->
@@ -230,9 +287,96 @@
       }
     }
 
+    // ✅ On-model dimension sketch: places anchor points just outside the model's real
+    // bounding box, then every frame reads where model-viewer projected them on screen
+    // and draws blueprint-style callout lines/ticks/labels between them.
+    const dotHTop = document.getElementById("dotHTop");
+    const dotHBottom = document.getElementById("dotHBottom");
+    const dotWLeft = document.getElementById("dotWLeft");
+    const dotWRight = document.getElementById("dotWRight");
+
+    const hLine = document.getElementById("hLine");
+    const hTick1 = document.getElementById("hTick1");
+    const hTick2 = document.getElementById("hTick2");
+    const hLabel = document.getElementById("hLabel");
+
+    const wLine = document.getElementById("wLine");
+    const wTick1 = document.getElementById("wTick1");
+    const wTick2 = document.getElementById("wTick2");
+    const wLabel = document.getElementById("wLabel");
+
+    let dimLoopRunning = false;
+
+    function placeDimensionAnchors() {
+      if (!model.getDimensions || !model.getBoundingBoxCenter) return false;
+      const size = model.getDimensions();
+      const center = model.getBoundingBoxCenter();
+      const marginX = size.x * 0.12;
+      const marginY = size.y * 0.12;
+      const frontZ = center.z + size.z / 2;
+
+      dotHTop.dataset.position = `${center.x - size.x / 2 - marginX} ${center.y + size.y / 2} ${frontZ}`;
+      dotHBottom.dataset.position = `${center.x - size.x / 2 - marginX} ${center.y - size.y / 2} ${frontZ}`;
+      dotWLeft.dataset.position = `${center.x - size.x / 2} ${center.y - size.y / 2 - marginY} ${frontZ}`;
+      dotWRight.dataset.position = `${center.x + size.x / 2} ${center.y - size.y / 2 - marginY} ${frontZ}`;
+      return true;
+    }
+
+    function labelFor(axis, estimateCm) {
+      if (REAL_DIMENSIONS_CM) return `${axis === "h" ? "H" : "W"} ${REAL_DIMENSIONS_CM[axis === "h" ? "height" : "width"]} cm`;
+      return `${axis === "h" ? "H" : "W"} ${estimateCm} cm`;
+    }
+
+    function screenPoint(el, mvRect) {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2 - mvRect.left, y: r.top + r.height / 2 - mvRect.top };
+    }
+
+    function drawCallout(lineEl, tick1El, tick2El, labelEl, p1, p2, text, labelOffset) {
+      lineEl.setAttribute("x1", p1.x); lineEl.setAttribute("y1", p1.y);
+      lineEl.setAttribute("x2", p2.x); lineEl.setAttribute("y2", p2.y);
+
+      const dx = p2.x - p1.x, dy = p2.y - p1.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const perp = { x: -dy / len, y: dx / len };
+      const tick = 6;
+
+      tick1El.setAttribute("x1", p1.x - perp.x * tick); tick1El.setAttribute("y1", p1.y - perp.y * tick);
+      tick1El.setAttribute("x2", p1.x + perp.x * tick); tick1El.setAttribute("y2", p1.y + perp.y * tick);
+      tick2El.setAttribute("x1", p2.x - perp.x * tick); tick2El.setAttribute("y1", p2.y - perp.y * tick);
+      tick2El.setAttribute("x2", p2.x + perp.x * tick); tick2El.setAttribute("y2", p2.y + perp.y * tick);
+
+      const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      labelEl.setAttribute("x", mid.x + perp.x * labelOffset);
+      labelEl.setAttribute("y", mid.y + perp.y * labelOffset);
+      labelEl.textContent = text;
+    }
+
+    function dimLoop() {
+      const mvRect = model.getBoundingClientRect();
+      const size = model.getDimensions();
+
+      drawCallout(
+        hLine, hTick1, hTick2, hLabel,
+        screenPoint(dotHBottom, mvRect), screenPoint(dotHTop, mvRect),
+        labelFor("h", Math.round(size.y * 100)), -14
+      );
+      drawCallout(
+        wLine, wTick1, wTick2, wLabel,
+        screenPoint(dotWLeft, mvRect), screenPoint(dotWRight, mvRect),
+        labelFor("w", Math.round(size.x * 100)), 14
+      );
+
+      requestAnimationFrame(dimLoop);
+    }
+
     model.addEventListener("load", () => {
       loader.style.display = "none";
       updateDimensionBadge();
+      if (placeDimensionAnchors() && !dimLoopRunning) {
+        dimLoopRunning = true;
+        requestAnimationFrame(dimLoop);
+      }
       gtag('event','model_loaded',{event_category:'3d',event_label:'IFB_WM'});
     });
 
