@@ -390,7 +390,12 @@
       if (!model.getDimensions || !model.getBoundingBoxCenter || !model.updateHotspot) return false;
       const size = model.getDimensions();
       const center = model.getBoundingBoxCenter();
-      const hx = size.x / 2, hy = size.y / 2, hz = size.z / 2;
+      // Nudge the corners a few percent outside the true bounding box. Sitting exactly on
+      // the box surface puts them flush against the mesh, so model-viewer's occlusion ray
+      // grazes the model and reports corners hidden that are plainly in view — which was
+      // suppressing the depth callout at most angles.
+      const inflate = 1.04;
+      const hx = (size.x / 2) * inflate, hy = (size.y / 2) * inflate, hz = (size.z / 2) * inflate;
       let i = 0;
       for (const sx of [-1, 1]) {
         for (const sy of [-1, 1]) {
