@@ -132,13 +132,14 @@
       position: fixed;
       top: 10px;
       right: 10px;
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid rgba(255, 204, 0, 0.5);
-      color: #ffcc00;
-      font-size: 12px;
-      font-weight: bold;
-      padding: 6px 10px;
-      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      padding: 6px 11px;
+      border-radius: 999px;
       z-index: 500;
       pointer-events: none;
     }
@@ -171,40 +172,24 @@
     }
 
     .dim-line, .dim-tick {
-      stroke: #ffcc00;
-      stroke-width: 2;
+      stroke: #ffffff;
+      stroke-width: 1.5;
       stroke-linecap: round;
     }
 
-    /* Thin leader lines running from the product edge out to the dimension line (CAD/IKEA style) */
-    .dim-ext {
-      stroke: #ffcc00;
-      stroke-width: 1;
-      opacity: 0.55;
-    }
-
-    /* Markers pinning each callout to the exact two points being measured */
-    .dim-dot {
-      fill: #ffcc00;
-      stroke: rgba(0, 0, 0, 0.55);
-      stroke-width: 1;
-    }
-
-    /* Fades a whole callout out when its edge is hidden behind the product */
-    #hGroup, #wGroup, #dGroup {
+    #heightGroup {
       transition: opacity 0.15s linear;
     }
 
     .dim-label {
-      fill: #ffcc00;
-      font-size: 12px;
-      font-weight: bold;
-      font-family: Arial, sans-serif;
-      /* text-anchor is set per-label in JS (end for the height label, middle for width) —
-         a CSS rule here would win over that, so it's intentionally left out. */
-      paint-order: stroke;
-      stroke: #000;
-      stroke-width: 3px;
+      fill: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: Arial, Helvetica, sans-serif;
+      letter-spacing: 0.6px;
+      /* text-anchor and any rotation are set per-label in JS, so no CSS rule here —
+         it would win over the attribute. Legibility comes from the feDropShadow on the
+         parent group rather than a stroke halo, which read as an outline. */
     }
   </style>
 </head>
@@ -242,58 +227,48 @@
          overlays — Scene Viewer/Quick Look hand off to a native app and can never show page content). -->
     <div class="dim-badge" id="dimBadge">-- × -- × -- cm</div>
 
-    <!-- ✅ Anchor points for the on-model dimension sketch — one at each of the 8 bounding-box
-         corners (positions set from JS after load, from the model's real bounding box). Every
-         frame we read where model-viewer projected these corners on screen and pick which box
-         edge each measurement should sit against.
+    <!-- ✅ Anchor points for the dimension graphics — one at each of the 8 bounding-box corners
+         (positions set from JS after load, from the model's real bounding box). Each frame we
+         read where model-viewer projected these corners on screen and build the graphics from
+         them. data-normal points outward along the corner diagonal. -->
+    <div slot="hotspot-dim-c0" id="dimC0" data-position="0 0 0" data-normal="-0.577 -0.577 -0.577"></div>
+    <div slot="hotspot-dim-c1" id="dimC1" data-position="0 0 0" data-normal="-0.577 -0.577 0.577"></div>
+    <div slot="hotspot-dim-c2" id="dimC2" data-position="0 0 0" data-normal="-0.577 0.577 -0.577"></div>
+    <div slot="hotspot-dim-c3" id="dimC3" data-position="0 0 0" data-normal="-0.577 0.577 0.577"></div>
+    <div slot="hotspot-dim-c4" id="dimC4" data-position="0 0 0" data-normal="0.577 -0.577 -0.577"></div>
+    <div slot="hotspot-dim-c5" id="dimC5" data-position="0 0 0" data-normal="0.577 -0.577 0.577"></div>
+    <div slot="hotspot-dim-c6" id="dimC6" data-position="0 0 0" data-normal="0.577 0.577 -0.577"></div>
+    <div slot="hotspot-dim-c7" id="dimC7" data-position="0 0 0" data-normal="0.577 0.577 0.577"></div>
 
-         data-visibility-attribute="visible" makes model-viewer add/remove a `visible` attribute
-         as each corner becomes occluded by the model — that's what lets us prefer edges on the
-         near side and hide a callout whose edge has gone behind the machine, instead of drawing
-         a line across the product. data-normal points outward along the corner diagonal. -->
-    <div slot="hotspot-dim-c0" id="dimC0" data-position="0 0 0" data-normal="-0.577 -0.577 -0.577" data-visibility-attribute="visible"></div>
-    <div slot="hotspot-dim-c1" id="dimC1" data-position="0 0 0" data-normal="-0.577 -0.577 0.577" data-visibility-attribute="visible"></div>
-    <div slot="hotspot-dim-c2" id="dimC2" data-position="0 0 0" data-normal="-0.577 0.577 -0.577" data-visibility-attribute="visible"></div>
-    <div slot="hotspot-dim-c3" id="dimC3" data-position="0 0 0" data-normal="-0.577 0.577 0.577" data-visibility-attribute="visible"></div>
-    <div slot="hotspot-dim-c4" id="dimC4" data-position="0 0 0" data-normal="0.577 -0.577 -0.577" data-visibility-attribute="visible"></div>
-    <div slot="hotspot-dim-c5" id="dimC5" data-position="0 0 0" data-normal="0.577 -0.577 0.577" data-visibility-attribute="visible"></div>
-    <div slot="hotspot-dim-c6" id="dimC6" data-position="0 0 0" data-normal="0.577 0.577 -0.577" data-visibility-attribute="visible"></div>
-    <div slot="hotspot-dim-c7" id="dimC7" data-position="0 0 0" data-normal="0.577 0.577 0.577" data-visibility-attribute="visible"></div>
-
-    <!-- Each callout is one group so it can be hidden wholesale when its edge goes behind
-         the machine. Endpoint dots mark exactly which two points are being measured. -->
+    <!-- Width and depth are drawn as a footprint "L" lying on the floor along the two base
+         edges meeting at the corner nearest the camera. Only the near two edges are drawn:
+         this SVG paints over the render with no depth testing, so the far edges of a full
+         rectangle would be stroked straight across the machine's body. Height is the one
+         mark that leaves the floor, offset clear of the silhouette. -->
     <svg class="dim-svg" id="dimSvg">
-      <g id="hGroup">
-        <line id="hExt1" class="dim-ext"></line>
-        <line id="hExt2" class="dim-ext"></line>
-        <line id="hLine" class="dim-line"></line>
-        <line id="hTick1" class="dim-tick"></line>
-        <line id="hTick2" class="dim-tick"></line>
-        <circle id="hDot1" class="dim-dot" r="3.5"></circle>
-        <circle id="hDot2" class="dim-dot" r="3.5"></circle>
-        <text id="hLabel" class="dim-label"></text>
-      </g>
+      <defs>
+        <filter id="dimShadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#000" flood-opacity="0.85" />
+        </filter>
+      </defs>
 
-      <g id="wGroup">
-        <line id="wExt1" class="dim-ext"></line>
-        <line id="wExt2" class="dim-ext"></line>
+      <g id="footprintGroup" filter="url(#dimShadow)">
         <line id="wLine" class="dim-line"></line>
         <line id="wTick1" class="dim-tick"></line>
         <line id="wTick2" class="dim-tick"></line>
-        <circle id="wDot1" class="dim-dot" r="3.5"></circle>
-        <circle id="wDot2" class="dim-dot" r="3.5"></circle>
         <text id="wLabel" class="dim-label"></text>
-      </g>
 
-      <g id="dGroup">
-        <line id="dExt1" class="dim-ext"></line>
-        <line id="dExt2" class="dim-ext"></line>
         <line id="dLine" class="dim-line"></line>
         <line id="dTick1" class="dim-tick"></line>
         <line id="dTick2" class="dim-tick"></line>
-        <circle id="dDot1" class="dim-dot" r="3.5"></circle>
-        <circle id="dDot2" class="dim-dot" r="3.5"></circle>
         <text id="dLabel" class="dim-label"></text>
+      </g>
+
+      <g id="heightGroup" filter="url(#dimShadow)">
+        <line id="hLine" class="dim-line"></line>
+        <line id="hTick1" class="dim-tick"></line>
+        <line id="hTick2" class="dim-tick"></line>
+        <text id="hLabel" class="dim-label"></text>
       </g>
     </svg>
   </model-viewer>
@@ -343,41 +318,27 @@
       }
     }
 
-    // ✅ On-model dimension sketch: places anchor points just outside the model's real
-    // bounding box, then every frame reads where model-viewer projected them on screen
-    // and draws blueprint-style callout lines/ticks/labels between them.
+    // ✅ Dimension graphics: anchor points at the model's bounding-box corners, then every
+    // frame read where model-viewer projected them and draw the footprint and height line.
     const cornerEls = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => document.getElementById(`dimC${i}`));
 
-    const hExt1 = document.getElementById("hExt1");
-    const hExt2 = document.getElementById("hExt2");
+    const footprintGroup = document.getElementById("footprintGroup");
+    const heightGroup = document.getElementById("heightGroup");
+
     const hLine = document.getElementById("hLine");
     const hTick1 = document.getElementById("hTick1");
     const hTick2 = document.getElementById("hTick2");
     const hLabel = document.getElementById("hLabel");
 
-    const wExt1 = document.getElementById("wExt1");
-    const wExt2 = document.getElementById("wExt2");
     const wLine = document.getElementById("wLine");
     const wTick1 = document.getElementById("wTick1");
     const wTick2 = document.getElementById("wTick2");
     const wLabel = document.getElementById("wLabel");
 
-    const dExt1 = document.getElementById("dExt1");
-    const dExt2 = document.getElementById("dExt2");
     const dLine = document.getElementById("dLine");
     const dTick1 = document.getElementById("dTick1");
     const dTick2 = document.getElementById("dTick2");
     const dLabel = document.getElementById("dLabel");
-
-    const hGroup = document.getElementById("hGroup");
-    const wGroup = document.getElementById("wGroup");
-    const dGroup = document.getElementById("dGroup");
-    const hDot1 = document.getElementById("hDot1");
-    const hDot2 = document.getElementById("hDot2");
-    const wDot1 = document.getElementById("wDot1");
-    const wDot2 = document.getElementById("wDot2");
-    const dDot1 = document.getElementById("dDot1");
-    const dDot2 = document.getElementById("dDot2");
 
     let dimLoopRunning = false;
 
@@ -390,12 +351,7 @@
       if (!model.getDimensions || !model.getBoundingBoxCenter || !model.updateHotspot) return false;
       const size = model.getDimensions();
       const center = model.getBoundingBoxCenter();
-      // Nudge the corners a few percent outside the true bounding box. Sitting exactly on
-      // the box surface puts them flush against the mesh, so model-viewer's occlusion ray
-      // grazes the model and reports corners hidden that are plainly in view — which was
-      // suppressing the depth callout at most angles.
-      const inflate = 1.04;
-      const hx = (size.x / 2) * inflate, hy = (size.y / 2) * inflate, hz = (size.z / 2) * inflate;
+      const hx = size.x / 2, hy = size.y / 2, hz = size.z / 2;
       let i = 0;
       for (const sx of [-1, 1]) {
         for (const sy of [-1, 1]) {
@@ -425,78 +381,46 @@
     // placeDimensionAnchors(): x outer loop, then y, then z.
     const cornerIndex = (sx, sy, sz) => (sx > 0 ? 4 : 0) + (sy > 0 ? 2 : 0) + (sz > 0 ? 1 : 0);
 
-    // Draws one dimension callout: a line parallel to the product edge a→b but pushed
-    // `offset` px away from the model, thin extension lines connecting the two, end caps,
-    // and a horizontal label. `centerPt` is used to decide which way is "away from the model".
-    function drawDim(group, ext1, ext2, lineEl, t1, t2, dot1, dot2, labelEl, a, b, va, vb, centerPt, silhouette, offset, text) {
-      const dx = b.x - a.x, dy = b.y - a.y;
+    // Strokes a segment with a short perpendicular tick at each end.
+    function strokeSegment(lineEl, t1, t2, A, B, cap) {
+      const dx = B.x - A.x, dy = B.y - A.y;
       const len = Math.hypot(dx, dy) || 1;
-
-      // An edge pointing nearly straight away from the camera collapses to a stub on screen
-      // — that's depth viewed head-on, where the number has nowhere to sit and crowds the
-      // other labels, so drop the callout until the edge opens up again. This replaces the
-      // old both-ends-visible test: measuring along the base means the rear corners are
-      // permanently hidden behind the body, so that test made depth never draw at all.
-      if (len < 34) { group.style.opacity = "0"; return; }
-      group.style.opacity = "1";
-
-      // An endpoint behind the machine gets no dot or leader line — those are the only parts
-      // that could land on the product, as the dimension line itself clears the silhouette.
-      ext1.style.display = va ? "" : "none";
-      dot1.style.display = va ? "" : "none";
-      ext2.style.display = vb ? "" : "none";
-      dot2.style.display = vb ? "" : "none";
-
-      let px = -dy / len, py = dx / len;
-
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      if ((mx - centerPt.x) * px + (my - centerPt.y) * py < 0) { px = -px; py = -py; }
-
-      // Slide the dimension line out past the entire silhouette rather than a fixed distance
-      // from its edge. The chosen edge is often the near corner edge, which projects into the
-      // middle of the outline — a fixed offset there lays the line straight over the machine.
-      let support = 0;
-      for (const q of silhouette) {
-        const d = (q.x - a.x) * px + (q.y - a.y) * py;
-        if (d > support) support = d;
-      }
-      const off = support + offset;
-
-      const A = { x: a.x + px * off, y: a.y + py * off };
-      const B = { x: b.x + px * off, y: b.y + py * off };
-
-      // Extension lines start slightly off the product so they don't touch it
-      const gap = 4;
-      ext1.setAttribute("x1", a.x + px * gap); ext1.setAttribute("y1", a.y + py * gap);
-      ext1.setAttribute("x2", A.x + px * 4);   ext1.setAttribute("y2", A.y + py * 4);
-      ext2.setAttribute("x1", b.x + px * gap); ext2.setAttribute("y1", b.y + py * gap);
-      ext2.setAttribute("x2", B.x + px * 4);   ext2.setAttribute("y2", B.y + py * 4);
+      const px = -dy / len, py = dx / len;
 
       lineEl.setAttribute("x1", A.x); lineEl.setAttribute("y1", A.y);
       lineEl.setAttribute("x2", B.x); lineEl.setAttribute("y2", B.y);
-
-      const cap = 5;
       t1.setAttribute("x1", A.x - px * cap); t1.setAttribute("y1", A.y - py * cap);
       t1.setAttribute("x2", A.x + px * cap); t1.setAttribute("y2", A.y + py * cap);
       t2.setAttribute("x1", B.x - px * cap); t2.setAttribute("y1", B.y - py * cap);
       t2.setAttribute("x2", B.x + px * cap); t2.setAttribute("y2", B.y + py * cap);
+      return { px, py, len };
+    }
 
-      // Dots sit on the product corners themselves, marking exactly what's being measured
-      dot1.setAttribute("cx", a.x); dot1.setAttribute("cy", a.y);
-      dot2.setAttribute("cx", b.x); dot2.setAttribute("cy", b.y);
+    // Places a label beside a segment, rotated to lie along it. Keeping the text on the
+    // segment's own angle is what makes the footprint read as lying flat on the floor
+    // rather than as a caption floating over the scene. `awayX/awayY` pushes it to the
+    // outer side; the glyphs are flipped when the angle would leave them upside down.
+    function placeAlignedLabel(labelEl, A, B, awayX, awayY, gap, text) {
+      const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+      let angle = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI;
+      if (angle > 90 || angle < -90) angle += 180;
 
-      labelEl.setAttribute("x", (A.x + B.x) / 2 + px * 16);
-      labelEl.setAttribute("y", (A.y + B.y) / 2 + py * 16 + 4); // +4 ≈ half cap-height, vertical centering
+      const x = mx + awayX * gap, y = my + awayY * gap;
+      labelEl.setAttribute("x", x);
+      labelEl.setAttribute("y", y);
       labelEl.setAttribute("text-anchor", "middle");
+      labelEl.setAttribute("transform", `rotate(${angle.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`);
       labelEl.textContent = text;
     }
 
-    // Every frame: project the 8 bounding-box corners, then pick the single real box EDGE
-    // each measurement should sit against — the leftmost vertical edge for height, and the
-    // bottom edge nearest the camera for width. Anchoring to one edge (rather than the
-    // min/max of the whole projected hull) is what keeps the callouts hugging the product
-    // under AR's close camera and wide FOV, where far-side corners project well away from
-    // the visible face. Same approach furniture catalogues use for dimension graphics.
+    // Every frame: project the 8 bounding-box corners, then build two graphics from them —
+    // a footprint "L" lying on the floor along the two base edges that meet at the corner
+    // nearest the camera, and a single height line standing clear of the silhouette.
+    //
+    // The footprint is drawn directly on its edges with no outward offset, so it reads as
+    // marks on the floor the machine is standing on. That anchoring is the point: on a
+    // ground plane a small projection error looks like perspective, whereas a line floating
+    // beside the product next to nothing reads as misaligned.
     function dimLoop() {
       const mvRect = model.getBoundingClientRect();
       const size = model.getDimensions();
@@ -504,61 +428,68 @@
 
       const centerPt = pts.reduce((acc, p) => ({ x: acc.x + p.x / 8, y: acc.y + p.y / 8 }), { x: 0, y: 0 });
 
-      // NB: model-viewer prefixes the attribute, so data-visibility-attribute="visible"
-      // actually toggles `data-visible` on the hotspot — not `visible`.
-      const isVis = (i) => cornerEls[i].hasAttribute("data-visible");
-
-      // Of the parallel edges measuring one axis, take whichever projects longest. The
-      // longest projection is the edge most square-on to the camera, which is both the
-      // easiest to read and reliably on the near side — a rear or steeply receding edge
-      // foreshortens, which is what previously left the height line short of the machine
-      // and squashed depth into a stub beside the height label. Length also degrades
-      // gracefully as the model turns, where occlusion flags flip abruptly.
-      function pickEdge(candidates) {
-        let best = null;
-        for (const c of candidates) {
-          const dx = pts[c.ia].x - pts[c.ib].x, dy = pts[c.ia].y - pts[c.ib].y;
-          c.len = Math.hypot(dx, dy);
-          if (!best || c.len > best.len) best = c;
-        }
-        return best;
-      }
-
-      // Height → the vertical edge standing most square-on to the camera
-      const hEdges = [];
+      // Nearest base corner: on a ground plane, nearer points project lower on screen. This
+      // is deterministic and moves continuously as the model turns — unlike the occlusion
+      // flags this replaces, which flipped abruptly and needed the box inflating to behave.
+      let nearSx = -1, nearSz = -1, bestY = -Infinity;
       for (const sx of [-1, 1]) {
         for (const sz of [-1, 1]) {
-          hEdges.push({ ia: cornerIndex(sx, 1, sz), ib: cornerIndex(sx, -1, sz) });
+          const p = pts[cornerIndex(sx, -1, sz)];
+          if (p.y > bestY) { bestY = p.y; nearSx = sx; nearSz = sz; }
         }
       }
-      const hEdge = pickEdge(hEdges);
 
-      // Width and depth are both measured along the base only — never the top edges. They
-      // describe the machine's footprint, so reading them off the floor line is what keeps
-      // them legible next to the product.
-      const wEdges = [];
-      for (const sz of [-1, 1]) {
-        wEdges.push({ ia: cornerIndex(-1, -1, sz), ib: cornerIndex(1, -1, sz) });
+      const corner = pts[cornerIndex(nearSx, -1, nearSz)];
+      const alongW = pts[cornerIndex(-nearSx, -1, nearSz)]; // same depth, opposite width
+      const alongD = pts[cornerIndex(nearSx, -1, -nearSz)]; // same width, opposite depth
+
+      // Labels sit on the far side of each edge from the machine's centre, so they fall onto
+      // open floor rather than under the body.
+      const outward = (A, B) => {
+        const dx = B.x - A.x, dy = B.y - A.y;
+        const len = Math.hypot(dx, dy) || 1;
+        let px = -dy / len, py = dx / len;
+        const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+        if ((mx - centerPt.x) * px + (my - centerPt.y) * py < 0) { px = -px; py = -py; }
+        return { px, py, len };
+      };
+
+      const wOut = outward(corner, alongW);
+      const dOut = outward(corner, alongD);
+      const footprintVisible = wOut.len > 26 && dOut.len > 26;
+      footprintGroup.style.opacity = footprintVisible ? "1" : "0";
+      if (footprintVisible) {
+        strokeSegment(wLine, wTick1, wTick2, corner, alongW, 5);
+        strokeSegment(dLine, dTick1, dTick2, corner, alongD, 5);
+        placeAlignedLabel(wLabel, corner, alongW, wOut.px, wOut.py, 15, labelFor("w", Math.round(size.x * 100)));
+        placeAlignedLabel(dLabel, corner, alongD, dOut.px, dOut.py, 15, labelFor("d", Math.round(size.z * 100)));
       }
-      const wEdge = pickEdge(wEdges);
 
-      const dEdges = [];
+      // Height → whichever vertical edge projects longest, i.e. the one standing most
+      // square-on to the camera, then slid sideways past the whole silhouette so it never
+      // crosses the machine.
+      let hTop = null, hBottom = null, bestLen = -1;
       for (const sx of [-1, 1]) {
-        dEdges.push({ ia: cornerIndex(sx, -1, 1), ib: cornerIndex(sx, -1, -1) });
+        for (const sz of [-1, 1]) {
+          const top = pts[cornerIndex(sx, 1, sz)], bottom = pts[cornerIndex(sx, -1, sz)];
+          const l = Math.hypot(top.x - bottom.x, top.y - bottom.y);
+          if (l > bestLen) { bestLen = l; hTop = top; hBottom = bottom; }
+        }
       }
-      const dEdge = pickEdge(dEdges);
 
-      // A callout with neither endpoint visible is measuring an edge that's entirely behind
-      // the machine — drawing it just puts a line across the product, so hide it instead.
-      drawDim(hGroup, hExt1, hExt2, hLine, hTick1, hTick2, hDot1, hDot2, hLabel,
-        pts[hEdge.ia], pts[hEdge.ib], isVis(hEdge.ia), isVis(hEdge.ib), centerPt, pts, 22,
-        labelFor("h", Math.round(size.y * 100)));
-      drawDim(wGroup, wExt1, wExt2, wLine, wTick1, wTick2, wDot1, wDot2, wLabel,
-        pts[wEdge.ia], pts[wEdge.ib], isVis(wEdge.ia), isVis(wEdge.ib), centerPt, pts, 22,
-        labelFor("w", Math.round(size.x * 100)));
-      drawDim(dGroup, dExt1, dExt2, dLine, dTick1, dTick2, dDot1, dDot2, dLabel,
-        pts[dEdge.ia], pts[dEdge.ib], isVis(dEdge.ia), isVis(dEdge.ib), centerPt, pts, 22,
-        labelFor("d", Math.round(size.z * 100)));
+      const hOut = outward(hBottom, hTop);
+      let support = 0;
+      for (const q of pts) {
+        const d = (q.x - hBottom.x) * hOut.px + (q.y - hBottom.y) * hOut.py;
+        if (d > support) support = d;
+      }
+      const off = support + 20;
+      const A = { x: hBottom.x + hOut.px * off, y: hBottom.y + hOut.py * off };
+      const B = { x: hTop.x + hOut.px * off, y: hTop.y + hOut.py * off };
+
+      heightGroup.style.opacity = bestLen > 26 ? "1" : "0";
+      strokeSegment(hLine, hTick1, hTick2, A, B, 5);
+      placeAlignedLabel(hLabel, A, B, hOut.px, hOut.py, 14, labelFor("h", Math.round(size.y * 100)));
 
       requestAnimationFrame(dimLoop);
     }
