@@ -262,6 +262,14 @@
       <line id="wTick1" class="dim-tick"></line>
       <line id="wTick2" class="dim-tick"></line>
       <text id="wLabel" class="dim-label"></text>
+
+      <!-- Depth callout -->
+      <line id="dExt1" class="dim-ext"></line>
+      <line id="dExt2" class="dim-ext"></line>
+      <line id="dLine" class="dim-line"></line>
+      <line id="dTick1" class="dim-tick"></line>
+      <line id="dTick2" class="dim-tick"></line>
+      <text id="dLabel" class="dim-label"></text>
     </svg>
   </model-viewer>
 
@@ -329,6 +337,13 @@
     const wTick2 = document.getElementById("wTick2");
     const wLabel = document.getElementById("wLabel");
 
+    const dExt1 = document.getElementById("dExt1");
+    const dExt2 = document.getElementById("dExt2");
+    const dLine = document.getElementById("dLine");
+    const dTick1 = document.getElementById("dTick1");
+    const dTick2 = document.getElementById("dTick2");
+    const dLabel = document.getElementById("dLabel");
+
     let dimLoopRunning = false;
 
     // updateHotspot() (not just setting data-position) is required — model-viewer only
@@ -353,9 +368,12 @@
       return true;
     }
 
+    const AXIS_LABEL = { h: "H", w: "W", d: "D" };
+    const AXIS_SPEC_KEY = { h: "height", w: "width", d: "depth" };
+
     function labelFor(axis, estimateCm) {
-      if (REAL_DIMENSIONS_CM) return `${axis === "h" ? "H" : "W"} ${REAL_DIMENSIONS_CM[axis === "h" ? "height" : "width"]} cm`;
-      return `${axis === "h" ? "H" : "W"} ${estimateCm} cm`;
+      const cm = REAL_DIMENSIONS_CM ? REAL_DIMENSIONS_CM[AXIS_SPEC_KEY[axis]] : estimateCm;
+      return `${AXIS_LABEL[axis]} ${cm} cm`;
     }
 
     function screenPoint(el, mvRect) {
@@ -436,10 +454,23 @@
         if (midY > bestY) { bestY = midY; wA = left; wB = right; }
       }
 
+      // Depth → the bottom edge running front-to-back that sits furthest right on screen.
+      // Height takes the left side and width the front, so putting depth on the right keeps
+      // the three callouts on separate sides of the product instead of overlapping.
+      let dA = null, dB = null, bestDX = -Infinity;
+      for (const sx of [-1, 1]) {
+        const front = pts[cornerIndex(sx, -1, 1)];
+        const back = pts[cornerIndex(sx, -1, -1)];
+        const midX = (front.x + back.x) / 2;
+        if (midX > bestDX) { bestDX = midX; dA = front; dB = back; }
+      }
+
       drawDim(hExt1, hExt2, hLine, hTick1, hTick2, hLabel,
         hA, hB, centerPt, 26, labelFor("h", Math.round(size.y * 100)));
       drawDim(wExt1, wExt2, wLine, wTick1, wTick2, wLabel,
         wA, wB, centerPt, 26, labelFor("w", Math.round(size.x * 100)));
+      drawDim(dExt1, dExt2, dLine, dTick1, dTick2, dLabel,
+        dA, dB, centerPt, 26, labelFor("d", Math.round(size.z * 100)));
 
       requestAnimationFrame(dimLoop);
     }
