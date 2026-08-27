@@ -481,8 +481,10 @@
       // Preferring edges on the near side is the fix for the height line latching onto a
       // rear edge: a back edge is foreshortened and vertically offset by perspective, so
       // measuring it looks wrong next to the machine's visible near silhouette.
+      // NB: model-viewer prefixes the attribute, so data-visibility-attribute="visible"
+      // actually toggles `data-visible` on the hotspot — not `visible`.
       const visCount = (ia, ib) =>
-        (cornerEls[ia].hasAttribute("visible") ? 1 : 0) + (cornerEls[ib].hasAttribute("visible") ? 1 : 0);
+        (cornerEls[ia].hasAttribute("data-visible") ? 1 : 0) + (cornerEls[ib].hasAttribute("data-visible") ? 1 : 0);
 
       // Picks the best edge from a candidate list: most-visible first, then the caller's
       // screen-space preference (leftmost / lowest / rightmost) as the tiebreak.
