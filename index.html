@@ -14,8 +14,10 @@
     gtag('config', 'G-QYE6P5SK18', { anonymize_ip: true });
   </script>
 
-  <!-- ✅ 3D + AR Viewer -->
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <!-- ✅ 3D + AR Viewer — pinned to a known-good version. Unpinned (…/model-viewer/dist/…)
+       serves whatever the latest release is, so an upstream change could break the live site
+       with no change here. Bump this deliberately after testing a newer version. -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer@4.3.1/dist/model-viewer.min.js"></script>
 
   <style>
     :root{
@@ -254,8 +256,9 @@
     ar-scale="auto"
     camera-controls
     auto-rotate
-    auto-rotate-delay="0"
-    rotation-per-second="30deg"
+    auto-rotate-delay="3000"
+    rotation-per-second="20deg"
+    interaction-prompt="none"
     shadow-intensity="1"
     shadow-softness="0.8"
     environment-image="neutral"
